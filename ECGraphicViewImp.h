@@ -68,8 +68,9 @@ enum ECGVColor
     ECGV_BLUE = 4,
     ECGV_YELLOW = 5,    // red + green
     ECGV_PURPLE = 6,    // red+blue
-    ECGV_CYAN = 7,      // blue+green,
-    ECGV_NONE = 8,
+    ECGV_CYAN = 7,
+    ECGV_GRAY = 8,
+    ECGV_NONE = 9,
     ECGV_NUM_COLORS
 };
 
@@ -168,7 +169,12 @@ public:
     void DrawFilledCircle(int xcenter, int ycenter, double radius, ECGVColor color=ECGV_BLACK);
     void DrawEllipse(int xcenter, int ycenter, double radiusx, double radiusy, int thickness=3, ECGVColor color=ECGV_BLACK);
     void DrawFilledEllipse(int xcenter, int ycenter, double radiusx, double radiusy, ECGVColor color=ECGV_BLACK);
-    void DrawText(float x, float y, std::string text);
+    void DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, std::string text);
+
+    // Display Functions
+    void Clear(ECGVColor color) {
+        al_clear_to_color(arrayAllegroColors[color]);
+    }
     
 private:
     // Internal functions
@@ -200,11 +206,17 @@ private:
     ALLEGRO_TIMER *timer;
 
     ECGRAPHICVIEW_MODE _mode;
+    std::string _modeStr;
+    void DrawModeLabel();
 
     int cursorxDown, cursoryDown, cursorxUp, cursoryUp;
     bool _mouseDown, _firstMove;
     std::vector<ALLEGRO_BITMAP*> _bitmapLayers;
     std::vector<WindowObject*> _windowObjects;
+
+    // Rectangle Functions
+    //bool isPointInsideRect(float x1, float x2, float y1, float y2);
+    bool isPointOnLineRect(float x1, float x2, float y1, float y2);
 };
 
 #endif /* ECGraphicViewImp_h */

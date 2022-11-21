@@ -29,7 +29,8 @@ ALLEGRO_COLOR arrayAllegroColors[ECGV_NUM_COLORS] =
     al_map_rgb_f(0,0,255),
     al_map_rgb_f(255,255,0),
     al_map_rgb_f(255,0,255),
-    al_map_rgb_f(0,255,255)
+    al_map_rgb_f(0,255,255),
+    al_map_rgb_f(.54,.54,.54),
 };
 
 //***********************************************************
@@ -53,7 +54,10 @@ void ECGraphicViewImp :: Show()
 
     //SetRedraw(true);
     //int cursorxDown=-100, cursoryDown=-100, cursorxUp=-100, cursoryUp=-100;
-
+    Clear(ECGV_WHITE);
+    DrawModeLabel();
+    al_flip_display();
+    //al_flip_display();
     while(true)
     {
         // get current event
@@ -71,8 +75,17 @@ void ECGraphicViewImp :: Show()
         }
 
         if (evtCurrent == ECGV_EV_KEY_UP_SPACE) {
-            if (_mode == ECGRAPHICVIEW_EDITMODE) { _mode = ECGRAPHICVIEW_INSERTIONMODE; std::cout << "INSERT" << endl; }
-            else { _mode = ECGRAPHICVIEW_EDITMODE; std::cout << "EDIT" << endl; }
+            if (_mode == ECGRAPHICVIEW_EDITMODE) { _mode = ECGRAPHICVIEW_INSERTIONMODE; std::cout << "INSERT" << endl; _modeStr = "Insert Mode"; Clear(ECGV_WHITE); DrawModeLabel();}
+            else { _mode = ECGRAPHICVIEW_EDITMODE; std::cout << "EDIT" << endl; _modeStr = "Edit Mode"; Clear(ECGV_WHITE); DrawModeLabel(); }
+            for (auto obj : _windowObjects) {
+                if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
+                    cout << "Drawing Previus" << endl;
+                    DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
+                    //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
+                }
+            }
+            al_flip_display();
+
         }
         
         // Notify clients
@@ -93,18 +106,6 @@ void ECGraphicViewImp :: Show()
 
         if(evtCurrent == ECGV_EV_MOUSE_BUTTON_DOWN)
         {
-            // Store Original Bitmap
-            //ALLEGRO_BITMAP* originalBitmap = al_create_bitmap(widthView, heightView);
-            //al_set_target_bitmap(originalBitmap);
-            //al_draw_bitmap(al_get_backbuffer(al_get_current_display()), 0, 0, 0);
-            //al_flip_display();
-            //_originalBitmap = originalBitmap;
-
-            // Temporay Bitmap to Hold Drawing
-            // ALLEGRO_BITMAP* bitmap = al_create_bitmap(widthView, heightView);
-            // al_set_target_bitmap(bitmap);
-            // _bitmapLayers.push_back(bitmap);
-
             std::cout << "Cursor down: (" << cursorx << "," << cursory << ")\n";
             cursorxDown = cursorx;
             cursoryDown = cursory;
@@ -121,20 +122,25 @@ void ECGraphicViewImp :: Show()
             fRedraw = true;
             _mouseDown = false;
 
-            // Draw Full Bitmap
-            cout << "Drawings: " << _windowObjects.size() << endl;
-            for (auto obj : _windowObjects) {
-                if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                    DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
+            if (_mode == ECGRAPHICVIEW_INSERTIONMODE) {
+                // Draw Full Bitmap
+                cout << "Drawings: " << _windowObjects.size() << endl;
+                for (auto obj : _windowObjects) {
+                    if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
+                        DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
+                        //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
+                    }
                 }
             }
-            //al_flip_display();
+            DrawModeLabel();
+            al_flip_display();
 
         }
 
         if(evtCurrent == ECGV_EV_MOUSE_MOVING && al_is_event_queue_empty(event_queue))
         {
-            if( cursorxDown >= 0 && _mouseDown == true)
+            if (_mode == ECGRAPHICVIEW_INSERTIONMODE) {
+                if( cursorxDown >= 0 && _mouseDown == true)
             {
                 std::cout << "Drawing" << endl;
                 //std::cout << "Current cursor position: " << cursorx << "," << cursory << endl;
@@ -151,12 +157,12 @@ void ECGraphicViewImp :: Show()
                 }
 
                 // Add Temp Rect to Vector
-                RectObject* tempRect = new RectObject(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_BLACK);
+                RectObject* tempRect = new RectObject(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_GRAY);
                 _windowObjects.push_back(tempRect);
 
                 // Draw Rect to Display
                 al_clear_to_color(al_map_rgb(255,255,255));
-                DrawRectangle(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_BLACK);
+                DrawRectangle(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_GRAY);
                 //al_flip_display();
                 //DrawRectangle(200,200, 50, 50, 3);
 
@@ -164,13 +170,14 @@ void ECGraphicViewImp :: Show()
                 for (auto obj : _windowObjects) {
                     if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
                         cout << "Drawing Previus" << endl;
-                        DrawText(50,50,"Insertion Mode");
                         DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-                        DrawText(50,50,"Insertion Mode");
+                        //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
                     }
                 }
+                DrawModeLabel();
                 al_flip_display();
 
+            }
             }
         }
 #if 0
@@ -262,6 +269,7 @@ std::cout << "Start init..\n";
     
     // Set Default Mode to EDIT
     _mode = ECGRAPHICVIEW_EDITMODE;
+    _modeStr = "Edit Mode";
 
     // Set cursor positions to default
     cursorxDown = cursoryDown = cursorxUp = cursoryUp = -1;
@@ -434,29 +442,28 @@ void ECGraphicViewImp :: DrawFilledEllipse(int xcenter, int ycenter, double radi
     al_draw_filled_ellipse(xcenter, ycenter, radiusx, radiusy, arrayAllegroColors[color]);
 }
 
-void ECGraphicViewImp :: DrawText(float x, float y, string text) {
-    
-    al_init_font_addon(); // initialize the font addon
-    //al_init_ttf_addon();
-    ALLEGRO_PATH* p = al_get_standard_path(ALLEGRO_RESOURCES_PATH);
-    al_change_directory(al_path_cstr(p , ALLEGRO_NATIVE_PATH_SEP));
-    al_destroy_path(p);
-    p = 0;
-    
-    ALLEGRO_FONT* font = al_load_font("/Users/lancesigersmith/Desktop/CSE 3150/Project 2/font.fnt", 32, 0);
+void ECGraphicViewImp :: DrawModeLabel() {
+    DrawText(5,heightView-28,20,arrayAllegroColors[ECGV_BLACK],ALLEGRO_ALIGN_LEFT, _modeStr);
+}
 
+void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, string text) {
+    
+    al_init_font_addon();
+    al_init_ttf_addon();
+    
+    ALLEGRO_FONT* font = al_load_font("font.ttf", sz, NULL);
+    const char* _text = text.c_str();
+    cout << "INPUT: " << _text << endl;
+    al_draw_text(font, color, x, y, alignment, _text);
     // Check font is loaded
     if (!font) {
         fprintf(stderr, "failed to load font!\n");
         al_destroy_font(font);
     }
 
-    const char* _text = text.c_str();
-    //al_clear_to_color(arrayAllegroColors[ECGV_BLACK]);
-    al_draw_text(font, arrayAllegroColors[ECGV_BLUE], 500, 500, ALLEGRO_ALIGN_CENTER, "HGello\0");
-    //al_draw_textf(font, arrayAllegroColors[ECGV_BLUE], 300, 300, 0, )
-    //al_flip_display();
-    //al_draw_text(font, arrayAllegroColors[ECGV_BLUE], 12, 12, 0, _text);
-    cout << "text drawn" << endl;
     al_destroy_font(font);
 }
+
+ bool ECGraphicViewImp :: isPointOnLineRect(float x1, float x2, float y1, float y2) {
+    
+ }
