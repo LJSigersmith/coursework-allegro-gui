@@ -135,6 +135,24 @@ void ECGraphicViewImp :: Show()
             DrawModeLabel();
             al_flip_display();
 
+            if (_mode == ECGRAPHICVIEW_EDITMODE) {
+                for (auto obj : _windowObjects) {
+                    if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
+                        if (isPointOnLineRect(rect, cursorxDown, cursoryDown)) {
+                            rect->_color = ECGV_BLUE;
+                            for (auto obj : _windowObjects) {
+                                if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
+                                    cout << "Drawing Previus" << endl;
+                                    DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
+                                    //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
         }
 
         if(evtCurrent == ECGV_EV_MOUSE_MOVING && al_is_event_queue_empty(event_queue))
@@ -464,6 +482,38 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
     al_destroy_font(font);
 }
 
- bool ECGraphicViewImp :: isPointOnLineRect(float x1, float x2, float y1, float y2) {
-    
+ bool ECGraphicViewImp :: isPointOnLineRect(RectObject* _rect, float xp, float yp) {
+    float _x1 = _rect->_x1;
+    float _y1 = _rect->_y1;
+
+    float _x2 = _rect->_x2;
+    float _y2 = _rect->_y2;
+
+    std::pair<float,float> topLeft = std::make_pair(_x1, _y1);
+    std::pair<float,float> lowRight = std::make_pair(_x2, _y2);
+    std::pair<float,float> topRight = std::make_pair(_x2, _y1);
+    std::pair<float,float> lowLeft = std::make_pair(_x1, _y2);
+
+    auto segment1 = std::make_pair(topLeft, topRight);
+    auto segment2 = std::make_pair(topRight, lowRight);
+    auto segment3 = std::make_pair(lowRight, lowLeft);
+    auto segment4 = std::make_pair(lowLeft, topLeft);
+
+    vector<pair<pair<float,float>, pair<float,float> > > segments{ segment1, segment2, segment3, segment4 };
+
+    for (auto segment : segments) {
+        
+        float x1 = segment.first.first;
+        float y1 = segment.first.second;
+
+        float x2 = segment.second.first;
+        float y2 = segment.second.second;
+
+        float result = (x2 - x1) * (yp - y1) - (xp - x1) * (y2 - y1);
+        if (result == 0) {
+            cout << "On Line" << endl;
+            return true;
+        }
+    }
+    return false;
  }

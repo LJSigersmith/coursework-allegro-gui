@@ -216,7 +216,7 @@ private:
 
     // Rectangle Functions
     //bool isPointInsideRect(float x1, float x2, float y1, float y2);
-    bool isPointOnLineRect(float x1, float x2, float y1, float y2);
+    bool isPointOnLineRect(RectObject* _rect, float xp, float yp);
 };
 
 #endif /* ECGraphicViewImp_h */
