@@ -58,6 +58,23 @@ void ECGraphicViewImp :: Show()
     DrawModeLabel();
     al_flip_display();
     //al_flip_display();
+
+    ECObserverSubject ObserverSubject = ECObserverSubject();
+    
+    MouseUp *mouseUpObserver = new MouseUp(this);
+    MouseDown *mouseDownObserver = new MouseDown(this);
+    MouseMoving *mouseMovingObserver = new MouseMoving(this);
+    SpaceUp* spaceUpObersver = new SpaceUp(this);
+    DKeyUp* dKeyUpObserver = new DKeyUp(this);
+    ZKeyUp* zKeyUpObserver = new ZKeyUp(this);
+
+    ObserverSubject.Attach(mouseUpObserver);
+    ObserverSubject.Attach(mouseDownObserver);
+    ObserverSubject.Attach(mouseMovingObserver);
+    ObserverSubject.Attach(spaceUpObersver);
+    ObserverSubject.Attach(dKeyUpObserver);
+    ObserverSubject.Attach(zKeyUpObserver);
+
     while(true)
     {
         // get current event
@@ -74,24 +91,8 @@ void ECGraphicViewImp :: Show()
             break;
         }
 
-        if (evtCurrent == ECGV_EV_KEY_UP_SPACE) {
-            if (_mode == ECGRAPHICVIEW_EDITMODE) { _mode = ECGRAPHICVIEW_INSERTIONMODE; std::cout << "INSERT" << endl; _modeStr = "Insert Mode"; Clear(ECGV_WHITE); DrawModeLabel();}
-            else { _mode = ECGRAPHICVIEW_EDITMODE; std::cout << "EDIT" << endl; _modeStr = "Edit Mode"; Clear(ECGV_WHITE); DrawModeLabel(); }
-            for (auto obj : _windowObjects) {
-                if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                    cout << "Drawing Previus" << endl;
-                    DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-                    //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
-                }
-            }
-            al_flip_display();
-
-        }
+        ObserverSubject.Notify(evtCurrent);
         
-        // Notify clients
-        Notify();
-        
-        // refresh view
         if( evtCurrent == ECGV_EV_TIMER)
         {
             if( fRedraw )
@@ -101,56 +102,49 @@ void ECGraphicViewImp :: Show()
             }
         }
 
-        int cursorx, cursory;
+        // Get Cursor Position
         GetCursorPosition(cursorx, cursory);
 
-        if(evtCurrent == ECGV_EV_MOUSE_BUTTON_DOWN)
-        {
-            std::cout << "Cursor down: (" << cursorx << "," << cursory << ")\n";
+/*
+        if (evtCurrent == ECGV_EV_MOUSE_BUTTON_DOWN) {
             cursorxDown = cursorx;
             cursoryDown = cursory;
             _mouseDown = true;
             _firstMove = true;
         }
 
-        if(evtCurrent == ECGV_EV_MOUSE_BUTTON_UP)
-        {
+        if (evtCurrent == ECGV_EV_MOUSE_BUTTON_UP) {
 
-            std::cout << "Cursor up: (" << cursorx << "," << cursory << ")\n";
             cursorxUp = cursorx;
             cursoryUp = cursory;
             fRedraw = true;
             _mouseDown = false;
 
             if (_mode == ECGRAPHICVIEW_INSERTIONMODE) {
-                // Draw Full Bitmap
-                cout << "Drawings: " << _windowObjects.size() << endl;
-                for (auto obj : _windowObjects) {
-                    if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                        DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-                        //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
-                    }
-                }
+                DrawAllObjects();
             }
-            DrawModeLabel();
-            al_flip_display();
 
             if (_mode == ECGRAPHICVIEW_EDITMODE) {
-                for (auto obj : _windowObjects) {
-                    if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                        if (isPointOnLineRect(rect, cursorxDown, cursoryDown)) {
-                            rect->_color = ECGV_BLUE;
-                            for (auto obj : _windowObjects) {
-                                if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                                    cout << "Drawing Previus" << endl;
-                                    DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-                                    //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
-                                }
-                            }
-                            break;
-                        }
+                if (_isEditingRect == false) {
+                    cout << "Mouse Up and Editing" << endl;
+                    if (isClickInsideRect(cursorxUp, cursoryUp)) {
+                        cout << "Click INSIDE rect" << endl;
+                        _isEditingRect = true;
+                        _editingRect->_color = ECGV_BLUE;
+                    } else {
+                        cout << "Click Outsid rect" << endl;
                     }
+                } else if (_isEditingRect) {
+                    cout << "Mouse up and Not Editing" << endl;
+                    _isEditingRect = false;
+
+                    RectObject *editedRect = new RectObject(_editingRect->_x1, _editingRect->_y1, cursorxDown, cursoryDown, 1, ECGV_RED);
+                    _windowObjects.push_back(editedRect);
+                    cout << "New Edited Rect: x1:" << editedRect->_x1 << " y1: " << editedRect->_y1 << " x2: " << editedRect->_x2 << " y2: " << editedRect->_y2 << endl;
                 }
+                Clear(ECGV_WHITE);
+                DrawAllObjects();
+                al_flip_display();
             }
 
         }
@@ -197,7 +191,30 @@ void ECGraphicViewImp :: Show()
 
             }
             }
-        }
+            
+            if (_mode == ECGRAPHICVIEW_EDITMODE) {
+                if (_isEditingRect && al_is_event_queue_empty(event_queue)) {
+                    if (_firstMove) {
+                        int i = 0;
+                        for (auto obj : _windowObjects) {
+                            if (auto rect = dynamic_cast<RectObject*>(obj)) {
+                                if (rect == _editingRect) {
+                                    _windowObjects.erase(_windowObjects.begin() + i);
+                                }
+                            }
+                            i++;
+                        }
+                        _firstMove = false;
+                    }
+                // Draw Rect to Display
+                al_clear_to_color(al_map_rgb(255,255,255));
+                DrawRectangle(_editingRect->_x1, _editingRect->_y1, cursorx, cursory,1,ECGV_BLUE);
+
+                // Draw Previous Rects to Appear Continuous
+                DrawAllObjects();
+                }
+            }
+        }*/
 #if 0
         if( evtCurrent == ECGV_EV_TIMER)
         {
@@ -288,6 +305,8 @@ std::cout << "Start init..\n";
     // Set Default Mode to EDIT
     _mode = ECGRAPHICVIEW_EDITMODE;
     _modeStr = "Edit Mode";
+    _isEditingRect = false;
+    _mouseDown = false;
 
     // Set cursor positions to default
     cursorxDown = cursoryDown = cursorxUp = cursoryUp = -1;
@@ -430,7 +449,7 @@ void  ECGraphicViewImp :: DrawLine(int x1, int y1, int x2, int y2, int thickness
 
 void ECGraphicViewImp :: DrawRectangle(int x1, int y1, int x2, int y2, int thickness, ECGVColor color)
 {   
-    cout << x1 << " " << y1 << " " << x2 << " " << y2 << " " << thickness << " " << endl;
+    //cout << x1 << " " << y1 << " " << x2 << " " << y2 << " " << thickness << " " << endl;
     al_draw_rectangle(x1, y1, x2, y2, arrayAllegroColors[color],thickness);
     cout << "Drew Rect" << endl;
 }
@@ -513,6 +532,87 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
         if (result == 0) {
             cout << "On Line" << endl;
             return true;
+        }
+    }
+    return false;
+ }
+
+ bool ECGraphicViewImp::isPointInsideRect(RectObject* _rect, float xp, float yp) {
+
+    /*
+    float _x1 = _rect->_x1;
+    float _y1 = _rect->_y1;
+
+    float _x2 = _rect->_x2;
+    float _y2 = _rect->_y2;
+
+    std::pair<float,float> topLeft = std::make_pair(_x1, _y1);
+    std::pair<float,float> lowRight = std::make_pair(_x2, _y2);
+    std::pair<float,float> topRight = std::make_pair(_x2, _y1);
+    std::pair<float,float> lowLeft = std::make_pair(_x1, _y2);
+
+    auto segment1 = std::make_pair(topLeft, topRight);
+    auto segment2 = std::make_pair(topRight, lowRight);
+    auto segment3 = std::make_pair(lowRight, lowLeft);
+    auto segment4 = std::make_pair(lowLeft, topLeft);
+
+    vector<pair<pair<float,float>, pair<float,float> > > segments{ segment1, segment2, segment3, segment4 };
+
+    for (auto segment : segments) {
+        
+        float x1 = segment.first.first;
+        float y1 = segment.first.second;
+
+        float x2 = segment.second.first;
+        float y2 = segment.second.second;
+
+        float result = (x2 - x1) * (yp - y1) - (xp - x1) * (y2 - y1);
+        if (result == 0) {
+            cout << "On Line" << endl;
+            return true;
+        }
+        if (result < 0) {
+            cout << "Outside" << endl;
+            return false;
+        }
+    }
+
+    return true;
+    */
+    float maxX = max(_rect->_x1, _rect->_x2);
+    float maxY = max(_rect->_y1, _rect->_y2);
+
+    float minX = min(_rect->_x1, _rect->_x2);
+    float minY = min(_rect->_y1, _rect->_y2);
+
+    if (xp >= minX && xp <= maxX && yp >= minY && yp <= maxY) {
+        return true;
+    }
+    return false;
+ }
+
+ void ECGraphicViewImp::DrawAllObjects() {
+    //cout << endl << "Drawing All Objects" << endl;
+    for (auto obj : _windowObjects) {
+        if (auto rect = dynamic_cast<RectObject*>(obj)) {
+            if (rect->_color == ECGV_BLUE) { cout << "BLUE" << endl;}
+            DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
+        }
+    }
+    DrawModeLabel();
+    al_flip_display();
+
+ }
+
+ bool ECGraphicViewImp::isClickInsideRect(float xp, float yp) {
+    cout << "Is Point Inside? " << xp << "," << yp << endl;
+    for (auto obj : _windowObjects) {
+        if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
+            cout << "Is Point Inside Rect: x1:" << rect->_x1 << " y1: " << rect->_y1 << " x2: " << rect->_x2 << " y2: " << rect->_y2 << endl;
+            if (isPointInsideRect(rect, cursorxDown, cursoryDown)) {
+                _editingRect = rect;
+                return true;
+            }
         }
     }
     return false;

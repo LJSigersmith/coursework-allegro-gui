@@ -25,6 +25,7 @@
 //***********************************************************
 // Supported event codes
 
+/*
 enum ECGVEventType
 {
     ECGV_EV_NULL = -1,
@@ -55,6 +56,7 @@ enum ECGVEventType
     ECGV_EV_KEY_DOWN_G = 23,
     ECGV_EV_KEY_UP_G = 24
 };
+*/
 
 //***********************************************************
 // Pre-defined color
@@ -123,7 +125,6 @@ private:
     ECGVColor color;
 };
 
-
 //***********************************************************
 // A graphic view implementation
 // This is built on top of Allegro library
@@ -175,7 +176,31 @@ public:
     void Clear(ECGVColor color) {
         al_clear_to_color(arrayAllegroColors[color]);
     }
-    
+
+    int cursorx, cursory;
+    int cursorxDown, cursoryDown, cursorxUp, cursoryUp;
+    bool _mouseDown, _firstMove;
+    std::vector<ALLEGRO_BITMAP*> _bitmapLayers;
+    std::vector<WindowObject*> _windowObjects;
+
+    // Editing Functions
+    bool isPointInsideRect(RectObject* _rect, float xp, float yp);
+    bool isPointOnLineRect(RectObject* _rect, float xp, float yp);
+    bool isClickInsideRect(float xp, float yp);
+    RectObject* _editingRect;
+    bool _isEditingRect;
+
+    void DrawAllObjects();
+
+    ECGRAPHICVIEW_MODE _mode;
+    std::string _modeStr;
+    void DrawModeLabel();
+
+    void FlipDisplay() { al_flip_display(); }
+    bool isEventQueueEmpty() { return al_is_event_queue_empty(event_queue); }
+
+    vector<vector<WindowObject*> > _history;
+
 private:
     // Internal functions
     // Initialize and reset view
@@ -205,18 +230,6 @@ private:
     ALLEGRO_EVENT_QUEUE *event_queue;
     ALLEGRO_TIMER *timer;
 
-    ECGRAPHICVIEW_MODE _mode;
-    std::string _modeStr;
-    void DrawModeLabel();
-
-    int cursorxDown, cursoryDown, cursorxUp, cursoryUp;
-    bool _mouseDown, _firstMove;
-    std::vector<ALLEGRO_BITMAP*> _bitmapLayers;
-    std::vector<WindowObject*> _windowObjects;
-
-    // Rectangle Functions
-    //bool isPointInsideRect(float x1, float x2, float y1, float y2);
-    bool isPointOnLineRect(RectObject* _rect, float xp, float yp);
 };
 
 #endif /* ECGraphicViewImp_h */
