@@ -201,6 +201,9 @@ public:
 
     vector<vector<WindowObject*> > _history;
 
+    bool firstUndo;
+    int currentAction;
+
 private:
     // Internal functions
     // Initialize and reset view

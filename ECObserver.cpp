@@ -8,10 +8,12 @@
 #include "ECGraphicViewImp.h"
 void ZKeyUp::Update(ECGVEventType event) {
     if (event != ECGV_EV_KEY_UP_Z) { return; }
+    cout << "Undo" << endl;
     _view->_windowObjects = _view->_history.back();
     _view->Clear(ECGV_WHITE);
     _view->DrawAllObjects();
     _view->_history.pop_back();
+    cout << "End Undo" << endl;
 }
 void DKeyUp::Update(ECGVEventType event) {
     if (event != ECGV_EV_KEY_UP_D) { return; }
@@ -74,6 +76,7 @@ void MouseUp::Update(ECGVEventType event) {
             }
         }
         _view->_history.push_back(_view->_windowObjects);
+        cout << "History Added" << endl;
         _view->DrawAllObjects();
     }
 
@@ -94,6 +97,7 @@ void MouseUp::Update(ECGVEventType event) {
             RectObject *editedRect = new RectObject(_view->_editingRect->_x1, _view->_editingRect->_y1, _view->cursorxDown, _view->cursoryDown, 1, ECGV_BLACK);
             _view->_windowObjects.push_back(editedRect);
             _view->_history.push_back(_view->_windowObjects);
+            cout << "History Added" << endl;
             cout << "New Edited Rect: x1:" << editedRect->_x1 << " y1: " << editedRect->_y1 << " x2: " << editedRect->_x2 << " y2: " << editedRect->_y2 << endl;
         }
         _view->Clear(ECGV_WHITE);

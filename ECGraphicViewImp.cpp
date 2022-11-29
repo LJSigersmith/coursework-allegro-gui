@@ -104,124 +104,41 @@ void ECGraphicViewImp :: Show()
 
         // Get Cursor Position
         GetCursorPosition(cursorx, cursory);
-
-/*
-        if (evtCurrent == ECGV_EV_MOUSE_BUTTON_DOWN) {
+        
+        #if 0
+        // handle this event: TBD
+        int cursorx, cursory;
+        GetCursorPosition(cursorx, cursory);
+//cout << "Event: " << evt << endl;
+        if(evtCurrent == ECGV_EV_MOUSE_BUTTON_DOWN)
+        {
+            cout << "Cursor down: (" << cursorx << "," << cursory << ")\n";
             cursorxDown = cursorx;
             cursoryDown = cursory;
-            _mouseDown = true;
-            _firstMove = true;
         }
-
-        if (evtCurrent == ECGV_EV_MOUSE_BUTTON_UP) {
-
+        if(evtCurrent == ECGV_EV_MOUSE_BUTTON_UP)
+        {
+            cout << "Cursor up: (" << cursorx << "," << cursory << ")\n";
             cursorxUp = cursorx;
             cursoryUp = cursory;
             fRedraw = true;
-            _mouseDown = false;
-
-            if (_mode == ECGRAPHICVIEW_INSERTIONMODE) {
-                DrawAllObjects();
-            }
-
-            if (_mode == ECGRAPHICVIEW_EDITMODE) {
-                if (_isEditingRect == false) {
-                    cout << "Mouse Up and Editing" << endl;
-                    if (isClickInsideRect(cursorxUp, cursoryUp)) {
-                        cout << "Click INSIDE rect" << endl;
-                        _isEditingRect = true;
-                        _editingRect->_color = ECGV_BLUE;
-                    } else {
-                        cout << "Click Outsid rect" << endl;
-                    }
-                } else if (_isEditingRect) {
-                    cout << "Mouse up and Not Editing" << endl;
-                    _isEditingRect = false;
-
-                    RectObject *editedRect = new RectObject(_editingRect->_x1, _editingRect->_y1, cursorxDown, cursoryDown, 1, ECGV_RED);
-                    _windowObjects.push_back(editedRect);
-                    cout << "New Edited Rect: x1:" << editedRect->_x1 << " y1: " << editedRect->_y1 << " x2: " << editedRect->_x2 << " y2: " << editedRect->_y2 << endl;
-                }
-                Clear(ECGV_WHITE);
-                DrawAllObjects();
-                al_flip_display();
-            }
-
         }
-
-        if(evtCurrent == ECGV_EV_MOUSE_MOVING && al_is_event_queue_empty(event_queue))
+        if(evtCurrent == ECGV_EV_MOUSE_MOVING)
         {
-            if (_mode == ECGRAPHICVIEW_INSERTIONMODE) {
-                if( cursorxDown >= 0 && _mouseDown == true)
+            if( cursorxDown >= 0 )
             {
-                std::cout << "Drawing" << endl;
-                //std::cout << "Current cursor position: " << cursorx << "," << cursory << endl;
-                //RenderStart();
-
-                // Erase Last Temp Rect
-                if (!_firstMove) {
-                    auto lastIndex = _windowObjects.end() - 1;
-                    WindowObject* destroy = _windowObjects.back();
-                    _windowObjects.erase(lastIndex);
-                    delete destroy;
-                } else {
-                    _firstMove = false;
-                }
-
-                // Add Temp Rect to Vector
-                RectObject* tempRect = new RectObject(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_GRAY);
-                _windowObjects.push_back(tempRect);
-
-                // Draw Rect to Display
-                al_clear_to_color(al_map_rgb(255,255,255));
-                DrawRectangle(cursorxDown, cursoryDown, cursorx, cursory,1,ECGV_GRAY);
-                //al_flip_display();
-                //DrawRectangle(200,200, 50, 50, 3);
-
-                // Draw Previous Rects to Appear Continuous
-                for (auto obj : _windowObjects) {
-                    if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-                        cout << "Drawing Previus" << endl;
-                        DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-                        //DrawFilledRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, ECGV_BLACK);
-                    }
-                }
-                DrawModeLabel();
-                al_flip_display();
-
+                cout << "Current cursor position: " << cursorx << "," << cursory << endl;
+                RenderStart();
+                DrawRectangle(cursorxDown, cursoryDown, cursorx, cursory,1);
+                RenderEnd();
             }
-            }
-            
-            if (_mode == ECGRAPHICVIEW_EDITMODE) {
-                if (_isEditingRect && al_is_event_queue_empty(event_queue)) {
-                    if (_firstMove) {
-                        int i = 0;
-                        for (auto obj : _windowObjects) {
-                            if (auto rect = dynamic_cast<RectObject*>(obj)) {
-                                if (rect == _editingRect) {
-                                    _windowObjects.erase(_windowObjects.begin() + i);
-                                }
-                            }
-                            i++;
-                        }
-                        _firstMove = false;
-                    }
-                // Draw Rect to Display
-                al_clear_to_color(al_map_rgb(255,255,255));
-                DrawRectangle(_editingRect->_x1, _editingRect->_y1, cursorx, cursory,1,ECGV_BLUE);
-
-                // Draw Previous Rects to Appear Continuous
-                DrawAllObjects();
-                }
-            }
-        }*/
-#if 0
+        }
         if( evtCurrent == ECGV_EV_TIMER)
         {
             if( fRedraw )
             {
                 RenderStart();
-std::cout << "down:(" << cursorxDown <<"," << cursoryDown << ") up: (" << cursorxUp << "," << cursoryUp << ")\n";
+cout << "down:(" << cursorxDown <<"," << cursoryDown << ") up: (" << cursorxUp << "," << cursoryUp << ")\n";
                 //DrawLine(cursorxDown, cursoryDown, cursorxUp, cursoryUp);
                 DrawRectangle(cursorxDown, cursoryDown, cursorxUp, cursoryUp);
                 RenderEnd();
@@ -237,9 +154,7 @@ std::cout << "down:(" << cursorxDown <<"," << cursoryDown << ") up: (" << cursor
 void ECGraphicViewImp :: RenderStart()
 {
     //std::std::cout << "Redraw bitmap..." << GetPosX() << "," << GetPosY() << std::endl;
-    if (_mouseDown) {
-        al_clear_to_color(al_map_rgb(255,255,255));
-    }
+    al_clear_to_color(al_map_rgb(255,255,255));
 }
 
 
@@ -310,6 +225,8 @@ std::cout << "Start init..\n";
 
     // Set cursor positions to default
     cursorxDown = cursoryDown = cursorxUp = cursoryUp = -1;
+    firstUndo = true;
+    currentAction = 0;
     
     // Create new bitmap and set it as target
     std::cout << "Done with initialization.\n";
@@ -340,7 +257,7 @@ ECGVEventType ECGraphicViewImp :: WaitForEvent()
     //
     ALLEGRO_EVENT ev;
     al_wait_for_event(event_queue, &ev);
-//std::cout << "Process event...\n";
+//cout << "Process event...\n";
     
     if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
     {
@@ -377,6 +294,15 @@ ECGVEventType ECGraphicViewImp :: WaitForEvent()
             
             case ALLEGRO_KEY_G:
                 return ECGV_EV_KEY_DOWN_G;
+                
+            case ALLEGRO_KEY_F:
+                return ECGV_EV_KEY_DOWN_F;
+                
+            case ALLEGRO_KEY_LCTRL:
+                return ECGV_EV_KEY_DOWN_CTRL;
+                
+            case ALLEGRO_KEY_RCTRL:
+                return ECGV_EV_KEY_DOWN_CTRL;
                     
         }
     }
@@ -412,6 +338,15 @@ ECGVEventType ECGraphicViewImp :: WaitForEvent()
             case ALLEGRO_KEY_G:
                 return ECGV_EV_KEY_UP_G;
                 
+            case ALLEGRO_KEY_F:
+                return ECGV_EV_KEY_UP_F;
+                
+            case ALLEGRO_KEY_LCTRL:
+                return ECGV_EV_KEY_UP_CTRL;
+                
+            case ALLEGRO_KEY_RCTRL:
+                return ECGV_EV_KEY_UP_CTRL;
+                
         }
     }
     else if(ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN)
@@ -426,7 +361,7 @@ ECGVEventType ECGraphicViewImp :: WaitForEvent()
     {
         return ECGV_EV_MOUSE_MOVING;
     }
-//std::cout << "Event not recognized...\n";
+//cout << "Event not recognized...\n";
     
     return ECGV_EV_NULL;
 }

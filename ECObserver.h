@@ -48,7 +48,11 @@ enum ECGVEventType
     ECGV_EV_KEY_UP_SPACE = 21,
     ECGV_EV_KEY_DOWN_SPACE = 22,
     ECGV_EV_KEY_DOWN_G = 23,
-    ECGV_EV_KEY_UP_G = 24
+    ECGV_EV_KEY_UP_G = 24,
+    ECGV_EV_KEY_DOWN_F = 25,
+    ECGV_EV_KEY_UP_F = 26,
+    ECGV_EV_KEY_DOWN_CTRL = 27,
+    ECGV_EV_KEY_UP_CTRL = 28
 };
 
 class ECObserver
