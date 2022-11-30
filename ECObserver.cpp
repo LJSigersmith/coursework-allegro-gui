@@ -134,7 +134,7 @@ void DKeyUp::Update(ECGVEventType event) {
     auto objIndex = _view->objectIndexInWindow(_view->_editingRect);
     if (objIndex == _view->_windowObjects.end()) { throw "Attempting to Delete Object That Doesn't Exist"; }
     WindowObject* obj = *objIndex;
-
+    obj->_color = ECGV_BLACK;
     DeletedObject* dead = new DeletedObject(obj);
                 
     dead->id = _view->id;

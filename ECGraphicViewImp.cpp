@@ -434,7 +434,7 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
     al_init_font_addon();
     al_init_ttf_addon();
     
-    ALLEGRO_FONT* font = al_load_font("font.ttf", sz, NULL);
+    ALLEGRO_FONT* font = al_load_font("font.ttf", sz, 0);
     const char* _text = text.c_str();
     cout << "INPUT: " << _text << endl;
     al_draw_text(font, color, x, y, alignment, _text);
