@@ -39,7 +39,6 @@ void YKeyUp::Update(ECGVEventType event) {
     WindowObject* objToRedo = _view->_redo.back();
 
     if (DeletedObject* dead = dynamic_cast<DeletedObject*>(objToRedo)) {
-        cout << "Found deleted object" << endl;
         
         auto i = _view->_windowObjects.begin();
         cout << "How many objects are in window? " << _view->_windowObjects.size() << endl;
