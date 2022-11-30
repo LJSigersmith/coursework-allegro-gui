@@ -49,6 +49,7 @@ void YKeyUp::Update(ECGVEventType event) {
                 _view->_redo.pop_back();
                 _view->_undo.push_back(objToRedo);
             }
+            i++;
         }
         _view->DrawAllObjects();
         return;
@@ -279,22 +280,21 @@ void MouseUp::EditMode() {
     _view->_isEditingRect = false;
 
     RectObject *editedRect = new RectObject(_view->_editingRect->_x1, _view->_editingRect->_y1, _view->cursorxDown, _view->cursoryDown, 1, ECGV_BLACK);
-    _view->_objBeforeEdit->_color = ECGV_BLACK;
+    _view->_objBeforeEdit->_color = ECGV_RED;
     editedRect->_editedFrom = _view->_objBeforeEdit;
 
     editedRect->id = _view->id;
     _view->id += 1;
-
     _view->_windowObjects.push_back(editedRect);
 
     //_view->_undo.push_back(_view->_objBeforeEdit);
-    if (_view->_objBeforeEdit == NULL) {
-        cout << "obj before edit is null" << endl;
-    } else {
-        cout << "obj before edit valid" << endl;
-    }
+    //if (_view->_objBeforeEdit == NULL) {
+    //    cout << "obj before edit is null" << endl;
+    //} else {
+    //    cout << "obj before edit valid" << endl;
+    //}
     _view->_undo.push_back(editedRect);
-    _view->lastDisplay += 1;
+    //_view->lastDisplay += 1;
     cout << "History Added" << endl;
     
     cout << "New Edited Rect: x1:" << editedRect->_x1 << " y1: " << editedRect->_y1 << " x2: " << editedRect->_x2 << " y2: " << editedRect->_y2 << endl;

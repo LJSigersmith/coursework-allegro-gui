@@ -205,7 +205,6 @@ public:
 
     // Editing Functions
     bool isPointInsideRect(RectObject* _rect, float xp, float yp);
-    bool isPointOnLineRect(RectObject* _rect, float xp, float yp);
     bool isClickInsideRect(float xp, float yp);
     RectObject* _editingRect;
     bool _isEditingRect;

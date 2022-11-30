@@ -447,7 +447,22 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
     al_destroy_font(font);
 }
 
+ bool ECGraphicViewImp::isPointInsideRect(RectObject* _rect, float xp, float yp) {
+
+    float maxX = max(_rect->_x1, _rect->_x2);
+    float maxY = max(_rect->_y1, _rect->_y2);
+
+    float minX = min(_rect->_x1, _rect->_x2);
+    float minY = min(_rect->_y1, _rect->_y2);
+
+    if (xp >= minX && xp <= maxX && yp >= minY && yp <= maxY) {
+        return true;
+    }
+    return false;
+ }
+
  void ECGraphicViewImp::DrawAllObjects() {
+    //cout << endl << "Drawing All Objects" << endl;
     cout << "Objects to Draw: " << _windowObjects.size();
     for (auto obj : _windowObjects) {
         if (auto rect = dynamic_cast<RectObject*>(obj)) {
