@@ -89,6 +89,8 @@ class MouseUp : public ECObserver {
         }
         ~MouseUp() {}
         void Update(ECGVEventType event);
+        void InsertMode();
+        void EditMode();
 };
 
 class MouseMoving : public ECObserver {
@@ -98,6 +100,8 @@ class MouseMoving : public ECObserver {
         }
         ~MouseMoving() {}
         void Update(ECGVEventType event);
+        void InsertMode();
+        void EditMode();
 };
 
 class DKeyUp : public ECObserver {
@@ -116,6 +120,15 @@ class ZKeyUp : public ECObserver {
         }
         ~ZKeyUp() {}
         void Update(ECGVEventType event);
+};
+
+class YKeyUp : public ECObserver {
+    public :
+    YKeyUp(ECGraphicViewImp* view) {
+        _view = view;
+    }
+    ~YKeyUp() {}
+    void Update(ECGVEventType event);
 };
 
 //********************************************

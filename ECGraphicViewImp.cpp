@@ -67,6 +67,7 @@ void ECGraphicViewImp :: Show()
     SpaceUp* spaceUpObersver = new SpaceUp(this);
     DKeyUp* dKeyUpObserver = new DKeyUp(this);
     ZKeyUp* zKeyUpObserver = new ZKeyUp(this);
+    YKeyUp* yKeyUpObserver = new YKeyUp(this);
 
     ObserverSubject.Attach(mouseUpObserver);
     ObserverSubject.Attach(mouseDownObserver);
@@ -74,6 +75,7 @@ void ECGraphicViewImp :: Show()
     ObserverSubject.Attach(spaceUpObersver);
     ObserverSubject.Attach(dKeyUpObserver);
     ObserverSubject.Attach(zKeyUpObserver);
+    ObserverSubject.Attach(yKeyUpObserver);
 
     while(true)
     {
@@ -167,6 +169,7 @@ void ECGraphicViewImp :: RenderEnd()
     
 void ECGraphicViewImp :: Init()
 {
+    id = 1;
 std::cout << "Start init..\n";
     if(!al_init()) {
         std::cout << "failed to initialize allegro!\n";
@@ -217,16 +220,20 @@ std::cout << "Start init..\n";
     al_init_image_addon();
     al_init_primitives_addon();
     
+
+    al_set_window_title(al_get_current_display(), "CSE 3150 - Project 2");
+
     // Set Default Mode to EDIT
     _mode = ECGRAPHICVIEW_EDITMODE;
     _modeStr = "Edit Mode";
+    
     _isEditingRect = false;
     _mouseDown = false;
 
+    _warning = "";
+
     // Set cursor positions to default
     cursorxDown = cursoryDown = cursorxUp = cursoryUp = -1;
-    firstUndo = true;
-    currentAction = 0;
     
     // Create new bitmap and set it as target
     std::cout << "Done with initialization.\n";
@@ -418,6 +425,10 @@ void ECGraphicViewImp :: DrawModeLabel() {
     DrawText(5,heightView-28,20,arrayAllegroColors[ECGV_BLACK],ALLEGRO_ALIGN_LEFT, _modeStr);
 }
 
+void ECGraphicViewImp :: DrawWarningLabel() {
+    DrawText(widthView - 5,heightView-28,20,arrayAllegroColors[ECGV_RED],ALLEGRO_ALIGN_RIGHT, _warning);
+}
+
 void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, string text) {
     
     al_init_font_addon();
@@ -528,12 +539,15 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
 
  void ECGraphicViewImp::DrawAllObjects() {
     //cout << endl << "Drawing All Objects" << endl;
+    cout << "Objects to Draw: " << _windowObjects.size();
     for (auto obj : _windowObjects) {
         if (auto rect = dynamic_cast<RectObject*>(obj)) {
             if (rect->_color == ECGV_BLUE) { cout << "BLUE" << endl;}
             DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
         }
     }
+
+    DrawWarningLabel();
     DrawModeLabel();
     al_flip_display();
 
@@ -551,4 +565,15 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
         }
     }
     return false;
+ }
+
+ std::__1::__wrap_iter<WindowObject **> ECGraphicViewImp::objectIndexInWindow(WindowObject* obj) {
+    auto i = _windowObjects.begin();
+    for (WindowObject* o : _windowObjects) {
+        if (o == obj) {
+            return i;
+        }
+        i++;
+    }
+    return _windowObjects.end();
  }

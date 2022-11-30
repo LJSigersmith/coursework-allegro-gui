@@ -82,6 +82,23 @@ extern ALLEGRO_COLOR arrayAllegroColors[ECGV_NUM_COLORS];
 class WindowObject {
     public :
         virtual ~WindowObject() {};
+
+        WindowObject* _editedFrom;
+        //WindowObject* _deletedTwin;
+        //WindowObject* _aliveTwin;
+        ECGVColor _color;
+        int id;
+        //bool _wasDeleted;
+};
+
+class DeletedObject : public WindowObject {
+    public :
+        DeletedObject(WindowObject* alive) {
+            _alive = alive;
+        }
+        ~DeletedObject() {}
+
+        WindowObject* _alive;
 };
 
 class RectObject : public WindowObject {
@@ -95,6 +112,10 @@ public :
         _y2 = y2;
         _thickness = thickness;
         _color = color;
+        _editedFrom = NULL;
+        //_wasDeleted = false;
+        //_deletedTwin = NULL;
+        //_aliveTwin = NULL;
     }
 
     ~RectObject() {
@@ -106,7 +127,6 @@ public :
     int _x2;
     int _y2;
     int _thickness;
-    ECGVColor _color;
 };
 //***********************************************************
 // Drawing context (thickness and so on)
@@ -153,7 +173,7 @@ public:
     void SetRedraw(bool f) { fRedraw = f; }
     
     // Access view properties
-    int GetWith() const { return widthView; }
+    int GetWidth() const { return widthView; }
     int GetHeight() const { return heightView; }
     
     // Get cursor position (cx, cy)
@@ -195,14 +215,22 @@ public:
     ECGRAPHICVIEW_MODE _mode;
     std::string _modeStr;
     void DrawModeLabel();
+    void DrawWarningLabel();
 
     void FlipDisplay() { al_flip_display(); }
     bool isEventQueueEmpty() { return al_is_event_queue_empty(event_queue); }
 
-    vector<vector<WindowObject*> > _history;
+    //vector<vector<WindowObject*> > _history;
+    vector<WindowObject*> _undo;
+    vector<WindowObject*> _redo;
+    WindowObject* _objBeforeEdit;
+    int lastDisplay;
 
-    bool firstUndo;
-    int currentAction;
+    std::string _warning;
+
+    int id;
+
+    std::__1::__wrap_iter<WindowObject **> objectIndexInWindow(WindowObject* obj);
 
 private:
     // Internal functions
