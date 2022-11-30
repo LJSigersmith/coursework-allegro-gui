@@ -132,8 +132,14 @@ void DKeyUp::Update(ECGVEventType event) {
     if (_view->_mode == ECGRAPHICVIEW_INSERTIONMODE) { return; }
     
     auto objIndex = _view->objectIndexInWindow(_view->_editingRect);
-    if (objIndex == _view->_windowObjects.end()) { throw "Attempting to Delete Object That Doesn't Exist"; }
+    if (objIndex == _view->_windowObjects.end()) { 
+        // Object not in window, either error or currently editing object
+        // TO DO
+        return;
+    }
+    
     WindowObject* obj = *objIndex;
+
     obj->_color = ECGV_BLACK;
     DeletedObject* dead = new DeletedObject(obj);
                 
