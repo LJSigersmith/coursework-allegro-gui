@@ -8,7 +8,6 @@
 #include "ECGraphicViewImp.h"
 #include "allegro5/allegro_primitives.h"
 #include <allegro5/allegro_image.h>
-#include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
 #include <iostream>
@@ -30,7 +29,7 @@ ALLEGRO_COLOR arrayAllegroColors[ECGV_NUM_COLORS] =
     al_map_rgb_f(255,255,0),
     al_map_rgb_f(255,0,255),
     al_map_rgb_f(0,255,255),
-    al_map_rgb_f(.54,.54,.54),
+    al_map_rgb_f(.54,.54,.54)
 };
 
 //***********************************************************
@@ -49,39 +48,14 @@ ECGraphicViewImp :: ~ECGraphicViewImp()
 // Show the view. This would enter a forever loop, until quit is set
 void ECGraphicViewImp :: Show()
 {
-    
-    // draw something
-
-    //SetRedraw(true);
+    cout << "Show" << endl;
+    //
     //int cursorxDown=-100, cursoryDown=-100, cursorxUp=-100, cursoryUp=-100;
-    Clear(ECGV_WHITE);
-    DrawModeLabel();
-    al_flip_display();
-    //al_flip_display();
-
-    ECObserverSubject ObserverSubject = ECObserverSubject();
-    
-    MouseUp *mouseUpObserver = new MouseUp(this);
-    MouseDown *mouseDownObserver = new MouseDown(this);
-    MouseMoving *mouseMovingObserver = new MouseMoving(this);
-    SpaceUp* spaceUpObersver = new SpaceUp(this);
-    DKeyUp* dKeyUpObserver = new DKeyUp(this);
-    ZKeyUp* zKeyUpObserver = new ZKeyUp(this);
-    YKeyUp* yKeyUpObserver = new YKeyUp(this);
-
-    ObserverSubject.Attach(mouseUpObserver);
-    ObserverSubject.Attach(mouseDownObserver);
-    ObserverSubject.Attach(mouseMovingObserver);
-    ObserverSubject.Attach(spaceUpObersver);
-    ObserverSubject.Attach(dKeyUpObserver);
-    ObserverSubject.Attach(zKeyUpObserver);
-    ObserverSubject.Attach(yKeyUpObserver);
-
     while(true)
     {
         // get current event
         evtCurrent = WaitForEvent();
-        //std::std::cout << "evt: " << evtCurrent << std::endl;
+//std::cout << "evt: " << evtCurrent << std::endl;
         
         if( evtCurrent == ECGV_EV_NULL )
         {
@@ -92,9 +66,17 @@ void ECGraphicViewImp :: Show()
         {
             break;
         }
-
-        ObserverSubject.Notify(evtCurrent);
         
+        // render start
+        //RenderStart();
+        
+        // draw something
+        //DrawRectangle(100, 100, 400, 400);
+        //SetRedraw(true);
+        // Notify clients
+        Notify();
+        
+        // refresh view
         if( evtCurrent == ECGV_EV_TIMER)
         {
             if( fRedraw )
@@ -104,10 +86,7 @@ void ECGraphicViewImp :: Show()
             }
         }
 
-        // Get Cursor Position
-        GetCursorPosition(cursorx, cursory);
-        
-        #if 0
+#if 0
         // handle this event: TBD
         int cursorx, cursory;
         GetCursorPosition(cursorx, cursory);
@@ -155,7 +134,7 @@ cout << "down:(" << cursorxDown <<"," << cursoryDown << ") up: (" << cursorxUp <
 
 void ECGraphicViewImp :: RenderStart()
 {
-    //std::std::cout << "Redraw bitmap..." << GetPosX() << "," << GetPosY() << std::endl;
+    //std::cout << "Redraw bitmap..." << GetPosX() << "," << GetPosY() << std::endl;
     al_clear_to_color(al_map_rgb(255,255,255));
 }
 
@@ -163,37 +142,36 @@ void ECGraphicViewImp :: RenderStart()
 void ECGraphicViewImp :: RenderEnd()
 {
 //    al_draw_bitmap(algBitmap, GetPosX(), GetPosY(), 0);
-    al_flip_display();
+    //al_flip_display();
 }
 
     
 void ECGraphicViewImp :: Init()
 {
-    id = 1;
-std::cout << "Start init..\n";
+cout << "Start init..\n";
     if(!al_init()) {
-        std::cout << "failed to initialize allegro!\n";
+        cout << "failed to initialize allegro!\n";
         exit(-1);
     }
     
     if(!al_install_keyboard()) {
-        std::cout << "failed to initialize the keyboard!\n";
+        cout << "failed to initialize the keyboard!\n";
         exit(-1);
     }
     
     if(!al_install_mouse()) {
-        std::cout << "failed to initialize the mouse!\n";
+        cout << "failed to initialize the mouse!\n";
         exit(-1);
     }
     timer = al_create_timer(1.0 / FPS);
     if(!timer) {
-        std::cout << "failed to create timer!\n";
+        cout << "failed to create timer!\n";
         exit(-1);
     }
     // create the display
     display = al_create_display(widthView, heightView);
     if(!display) {
-        std::cout << "failed to create display!\n";
+        cout << "failed to create display!\n";
         Shutdown();
         exit( -1);
     }
@@ -205,7 +183,7 @@ std::cout << "Start init..\n";
         Shutdown();
         exit( -1);
     }
-//std::cout << "3\n";
+//cout << "3\n";
 //#if 0
     al_register_event_source(event_queue, al_get_display_event_source(display));
     al_register_event_source(event_queue, al_get_timer_event_source(timer));
@@ -220,23 +198,7 @@ std::cout << "Start init..\n";
     al_init_image_addon();
     al_init_primitives_addon();
     
-
-    al_set_window_title(al_get_current_display(), "CSE 3150 - Project 2");
-
-    // Set Default Mode to EDIT
-    _mode = ECGRAPHICVIEW_EDITMODE;
-    _modeStr = "Edit Mode";
-    
-    _isEditingRect = false;
-    _mouseDown = false;
-
-    _warning = "";
-
-    // Set cursor positions to default
-    cursorxDown = cursoryDown = cursorxUp = cursoryUp = -1;
-    
-    // Create new bitmap and set it as target
-    std::cout << "Done with initialization.\n";
+cout << "Done with initialization.\n";
 }
 
 void ECGraphicViewImp :: Shutdown()
@@ -386,14 +348,12 @@ void  ECGraphicViewImp :: DrawLine(int x1, int y1, int x2, int y2, int thickness
 {
     // draw a line
     al_draw_line(x1,y1,x2,y2,arrayAllegroColors[color],thickness);
-//std::cout << "Draw line: (" << x1 << "," << y1 << " to (" << x2 << "," << y2 << ")\n";
+//cout << "Draw line: (" << x1 << "," << y1 << " to (" << x2 << "," << y2 << ")\n";
 }
 
 void ECGraphicViewImp :: DrawRectangle(int x1, int y1, int x2, int y2, int thickness, ECGVColor color)
-{   
-    //cout << x1 << " " << y1 << " " << x2 << " " << y2 << " " << thickness << " " << endl;
+{
     al_draw_rectangle(x1, y1, x2, y2, arrayAllegroColors[color],thickness);
-    cout << "Drew Rect" << endl;
 }
 
 void ECGraphicViewImp :: DrawCircle(int xcenter, int ycenter, double radius, int thickness, ECGVColor color)
@@ -421,22 +381,16 @@ void ECGraphicViewImp :: DrawFilledEllipse(int xcenter, int ycenter, double radi
     al_draw_filled_ellipse(xcenter, ycenter, radiusx, radiusy, arrayAllegroColors[color]);
 }
 
-void ECGraphicViewImp :: DrawModeLabel() {
-    DrawText(5,heightView-28,20,arrayAllegroColors[ECGV_BLACK],ALLEGRO_ALIGN_LEFT, _modeStr);
-}
-
-void ECGraphicViewImp :: DrawWarningLabel() {
-    DrawText(widthView - 5,heightView-28,20,arrayAllegroColors[ECGV_RED],ALLEGRO_ALIGN_RIGHT, _warning);
-}
-
 void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, string text) {
-    
+    cout << "Drawing Text" << endl;
     al_init_font_addon();
     al_init_ttf_addon();
+    cout << "Addons Init" << endl;
     
     ALLEGRO_FONT* font = al_load_font("font.ttf", sz, 0);
     const char* _text = text.c_str();
     cout << "INPUT: " << _text << endl;
+    //al_draw_text(font, color, x, y, alignment, _text);
     al_draw_text(font, color, x, y, alignment, _text);
     // Check font is loaded
     if (!font) {
@@ -446,58 +400,3 @@ void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR colo
 
     al_destroy_font(font);
 }
-
- bool ECGraphicViewImp::isPointInsideRect(RectObject* _rect, float xp, float yp) {
-
-    float maxX = max(_rect->_x1, _rect->_x2);
-    float maxY = max(_rect->_y1, _rect->_y2);
-
-    float minX = min(_rect->_x1, _rect->_x2);
-    float minY = min(_rect->_y1, _rect->_y2);
-
-    if (xp >= minX && xp <= maxX && yp >= minY && yp <= maxY) {
-        return true;
-    }
-    return false;
- }
-
- void ECGraphicViewImp::DrawAllObjects() {
-    //cout << endl << "Drawing All Objects" << endl;
-    cout << "Objects to Draw: " << _windowObjects.size();
-    for (auto obj : _windowObjects) {
-        if (auto rect = dynamic_cast<RectObject*>(obj)) {
-            if (rect->_color == ECGV_BLUE) { cout << "BLUE" << endl;}
-            DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color);
-        }
-    }
-
-    DrawWarningLabel();
-    DrawModeLabel();
-    al_flip_display();
-
- }
-
- bool ECGraphicViewImp::isClickInsideRect(float xp, float yp) {
-    cout << "Is Point Inside? " << xp << "," << yp << endl;
-    for (auto obj : _windowObjects) {
-        if (RectObject* rect = dynamic_cast<RectObject*>(obj)) {
-            cout << "Is Point Inside Rect: x1:" << rect->_x1 << " y1: " << rect->_y1 << " x2: " << rect->_x2 << " y2: " << rect->_y2 << endl;
-            if (isPointInsideRect(rect, cursorxDown, cursoryDown)) {
-                _editingRect = rect;
-                return true;
-            }
-        }
-    }
-    return false;
- }
-
- std::__1::__wrap_iter<WindowObject **> ECGraphicViewImp::objectIndexInWindow(WindowObject* obj) {
-    auto i = _windowObjects.begin();
-    for (WindowObject* o : _windowObjects) {
-        if (o == obj) {
-            return i;
-        }
-        i++;
-    }
-    return _windowObjects.end();
- }

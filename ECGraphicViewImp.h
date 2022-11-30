@@ -18,14 +18,12 @@
 
 #include <vector>
 #include <map>
-#include <string>
 #include "ECObserver.h"
 #include <allegro5/allegro.h>
 
 //***********************************************************
 // Supported event codes
 
-/*
 enum ECGVEventType
 {
     ECGV_EV_NULL = -1,
@@ -54,9 +52,12 @@ enum ECGVEventType
     ECGV_EV_KEY_UP_SPACE = 21,
     ECGV_EV_KEY_DOWN_SPACE = 22,
     ECGV_EV_KEY_DOWN_G = 23,
-    ECGV_EV_KEY_UP_G = 24
+    ECGV_EV_KEY_UP_G = 24,
+    ECGV_EV_KEY_DOWN_F = 25,
+    ECGV_EV_KEY_UP_F = 26,
+    ECGV_EV_KEY_DOWN_CTRL = 27,
+    ECGV_EV_KEY_UP_CTRL = 28
 };
-*/
 
 //***********************************************************
 // Pre-defined color
@@ -79,55 +80,6 @@ enum ECGVColor
 // Allegro color
 extern ALLEGRO_COLOR arrayAllegroColors[ECGV_NUM_COLORS];
 
-class WindowObject {
-    public :
-        virtual ~WindowObject() {};
-
-        WindowObject* _editedFrom;
-        //WindowObject* _deletedTwin;
-        //WindowObject* _aliveTwin;
-        ECGVColor _color;
-        int id;
-        //bool _wasDeleted;
-};
-
-class DeletedObject : public WindowObject {
-    public :
-        DeletedObject(WindowObject* alive) {
-            _alive = alive;
-        }
-        ~DeletedObject() {}
-
-        WindowObject* _alive;
-};
-
-class RectObject : public WindowObject {
-
-public :
-   
-    RectObject(int x1, int y1, int x2, int y2, int thickness, ECGVColor color) {
-        _x1 = x1;
-        _y1 = y1; 
-        _x2 = x2;
-        _y2 = y2;
-        _thickness = thickness;
-        _color = color;
-        _editedFrom = NULL;
-        //_wasDeleted = false;
-        //_deletedTwin = NULL;
-        //_aliveTwin = NULL;
-    }
-
-    ~RectObject() {
-
-    }
-
-    int _x1;
-    int _y1; 
-    int _x2;
-    int _y2;
-    int _thickness;
-};
 //***********************************************************
 // Drawing context (thickness and so on)
 
@@ -145,6 +97,7 @@ private:
     ECGVColor color;
 };
 
+
 //***********************************************************
 // A graphic view implementation
 // This is built on top of Allegro library
@@ -155,10 +108,6 @@ private:
 // are notified through Observer's Notify function
 // then an observer would check for update (in this case, what key is pressed)
 //
-enum ECGRAPHICVIEW_MODE {
-    ECGRAPHICVIEW_EDITMODE = 1,
-    ECGRAPHICVIEW_INSERTIONMODE = 2
-};
 
 class ECGraphicViewImp : public ECObserverSubject
 {
@@ -181,6 +130,9 @@ public:
     
     // The current event
     ECGVEventType GetCurrEvent() const { return evtCurrent; }
+
+    // Event queue
+    bool isEventQueueEmpty() { return al_is_event_queue_empty(event_queue); }
     
     // Drawing functions
     void DrawLine(int x1, int y1, int x2, int y2, int thickness=3, ECGVColor color=ECGV_BLACK);
@@ -191,54 +143,10 @@ public:
     void DrawEllipse(int xcenter, int ycenter, double radiusx, double radiusy, int thickness=3, ECGVColor color=ECGV_BLACK);
     void DrawFilledEllipse(int xcenter, int ycenter, double radiusx, double radiusy, ECGVColor color=ECGV_BLACK);
     void DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, std::string text);
-
-    // Display Functions
-    void Clear(ECGVColor color) {
-        al_clear_to_color(arrayAllegroColors[color]);
+    
+    void Flip() {
+        al_flip_display();
     }
-
-    int cursorx, cursory;
-    int cursorxDown, cursoryDown, cursorxUp, cursoryUp;
-    bool _mouseDown, _firstMove;
-    std::vector<ALLEGRO_BITMAP*> _bitmapLayers;
-    std::vector<WindowObject*> _windowObjects;
-
-    // Editing Functions
-    bool isPointInsideRect(RectObject* _rect, float xp, float yp);
-    bool isClickInsideRect(float xp, float yp);
-    RectObject* _editingRect;
-    bool _isEditingRect;
-
-    void DrawAllObjects();
-
-    ECGRAPHICVIEW_MODE _mode;
-    std::string _modeStr;
-    void DrawModeLabel();
-    void DrawWarningLabel();
-
-    void FlipDisplay() { al_flip_display(); }
-    bool isEventQueueEmpty() { return al_is_event_queue_empty(event_queue); }
-
-    //vector<vector<WindowObject*> > _history;
-    vector<WindowObject*> _undo;
-    vector<WindowObject*> _redo;
-    WindowObject* _objBeforeEdit;
-    int lastDisplay;
-
-    std::string _warning;
-
-    int id;
-
-    std::__1::__wrap_iter<WindowObject **> objectIndexInWindow(WindowObject* obj);
-
-    //For Editing
-    float firstClickX;
-    float firstClickY;
-    float x1Difference;
-    float x2Difference;
-    float y1Difference;
-    float y2Difference;
-
 private:
     // Internal functions
     // Initialize and reset view
@@ -246,7 +154,9 @@ private:
     void Shutdown();
     
     // View utiltiles
+    public :
     void RenderStart();
+    private:
     void RenderEnd();
     
     // Process event
@@ -267,7 +177,6 @@ private:
     ALLEGRO_DISPLAY *display;
     ALLEGRO_EVENT_QUEUE *event_queue;
     ALLEGRO_TIMER *timer;
-
 };
 
 #endif /* ECGraphicViewImp_h */
