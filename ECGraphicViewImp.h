@@ -231,6 +231,14 @@ public:
 
     std::__1::__wrap_iter<WindowObject **> objectIndexInWindow(WindowObject* obj);
 
+    //For Editing
+    float firstClickX;
+    float firstClickY;
+    float x1Difference;
+    float x2Difference;
+    float y1Difference;
+    float y2Difference;
+
 private:
     // Internal functions
     // Initialize and reset view

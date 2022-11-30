@@ -225,8 +225,14 @@ void MouseMoving::EditMode() {
 
     // Draw Rect to Display
     al_clear_to_color(al_map_rgb(255,255,255));
-    _view->DrawRectangle(_view->_editingRect->_x1, _view->_editingRect->_y1, _view->cursorx, _view->cursory,1,ECGV_BLUE);
 
+    float x1 = _view->cursorx - _view->x1Difference;
+    float y1 = _view->cursory - _view->y1Difference;
+
+    float x2 = _view->cursorx - _view->x2Difference;
+    float y2 = _view->cursory - _view->y2Difference;
+
+    _view->DrawRectangle(x1, y1,x2, y2, 1, ECGV_BLUE);
     // Draw Previous Rects to Appear Continuous
     _view->DrawAllObjects();
 }
@@ -251,6 +257,15 @@ void MouseUp::Update(ECGVEventType event) {
             if (clickInside) {
                 _view->_isEditingRect = true;
                 _view->_editingRect->_color = ECGV_BLUE;
+                
+                _view->firstClickX = _view->cursorxUp;
+                _view->firstClickY = _view->cursoryUp;
+
+                _view->x1Difference = _view->cursorxUp - _view->_editingRect->_x1;
+                _view->y1Difference = _view->cursoryUp - _view->_editingRect->_y1;
+
+                _view->x2Difference = _view->cursorxUp - _view->_editingRect->_x2;
+                _view->y2Difference = _view->cursoryUp - _view->_editingRect->_y2;
             }
         
         } else if (_view->_isEditingRect) {
@@ -285,22 +300,23 @@ void MouseUp::EditMode() {
     cout << "Mouse up and Not Editing" << endl;
     _view->_isEditingRect = false;
 
-    RectObject *editedRect = new RectObject(_view->_editingRect->_x1, _view->_editingRect->_y1, _view->cursorxDown, _view->cursoryDown, 1, ECGV_BLACK);
+    float x1 = _view->cursorxUp - _view->x1Difference;
+    float y1 = _view->cursoryUp - _view->y1Difference;
+
+    float x2 = _view->cursorxUp - _view->x2Difference;
+    float y2 = _view->cursoryUp - _view->y2Difference;
+
+    _view->DrawRectangle(x1, y1,x2, y2, 1, ECGV_BLUE);
+
+    RectObject *editedRect = new RectObject(x1, y1, x2, y2, 1, ECGV_BLACK);
     _view->_objBeforeEdit->_color = ECGV_RED;
     editedRect->_editedFrom = _view->_objBeforeEdit;
 
     editedRect->id = _view->id;
     _view->id += 1;
     _view->_windowObjects.push_back(editedRect);
-
-    //_view->_undo.push_back(_view->_objBeforeEdit);
-    //if (_view->_objBeforeEdit == NULL) {
-    //    cout << "obj before edit is null" << endl;
-    //} else {
-    //    cout << "obj before edit valid" << endl;
-    //}
     _view->_undo.push_back(editedRect);
-    //_view->lastDisplay += 1;
+
     cout << "History Added" << endl;
     
     cout << "New Edited Rect: x1:" << editedRect->_x1 << " y1: " << editedRect->_y1 << " x2: " << editedRect->_x2 << " y2: " << editedRect->_y2 << endl;
