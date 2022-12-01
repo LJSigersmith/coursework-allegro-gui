@@ -22,16 +22,18 @@ class ECWindowObject {
     public :
         virtual ~ECWindowObject() {};
 
+        // If object was created by being edited,
+        // store what object was edited
         ECWindowObject* _editedFrom;
-        //ECECWindowObject* _deletedTwin;
-        //ECECWindowObject* _aliveTwin;
+        
         ECGVColorRef _color;
         int id;
-        //bool _wasDeleted;
 };
 
+// Empty Object, just represents an object that was deleted
 class ECDeletedObject : public ECWindowObject {
     public :
+        // Set alive object to actual object
         ECDeletedObject(ECWindowObject* alive) {
             _alive = alive;
         }
@@ -44,6 +46,7 @@ class ECRectObject : public ECWindowObject {
 
 public :
    
+   // Rectangle Object
     ECRectObject(int x1, int y1, int x2, int y2, int thickness, ECGVColorRef color) {
         _x1 = x1;
         _y1 = y1; 
@@ -52,9 +55,6 @@ public :
         _thickness = thickness;
         _color = color;
         _editedFrom = NULL;
-        //_wasDeleted = false;
-        //_deletedTwin = NULL;
-        //_aliveTwin = NULL;
     }
 
     ~ECRectObject() {

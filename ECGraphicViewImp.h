@@ -142,11 +142,10 @@ public:
     void DrawFilledCircle(int xcenter, int ycenter, double radius, ECGVColor color=ECGV_BLACK);
     void DrawEllipse(int xcenter, int ycenter, double radiusx, double radiusy, int thickness=3, ECGVColor color=ECGV_BLACK);
     void DrawFilledEllipse(int xcenter, int ycenter, double radiusx, double radiusy, ECGVColor color=ECGV_BLACK);
-    void DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, std::string text);
+    void DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, std::string text); // I know we're not supposed to add stuff to this file, but this seemed the best place to add this
     
-    void Flip() {
-        al_flip_display();
-    }
+    void ClearDisplay(ECGVColor color) { al_clear_to_color(arrayAllegroColors[color]); }
+    void Flip() { al_flip_display(); }
 private:
     // Internal functions
     // Initialize and reset view
@@ -154,9 +153,7 @@ private:
     void Shutdown();
     
     // View utiltiles
-    public :
     void RenderStart();
-    private:
     void RenderEnd();
     
     // Process event

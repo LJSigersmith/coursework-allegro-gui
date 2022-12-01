@@ -20,6 +20,7 @@ using namespace std;
 // Observer design pattern: observer interface
 // Supported event codes
 
+// Event Type Copy
 enum ECGVEventTypeRef
 {
     ECGV_REF_EV_NULL = -1,
@@ -55,11 +56,13 @@ enum ECGVEventTypeRef
     ECGV_REF_EV_KEY_UP_CTRL = 28
 };
 
+// View Mode
 enum ECGRAPHICVIEW_MODE {
     ECGRAPHICVIEW_EDITMODE = 1,
     ECGRAPHICVIEW_INSERTIONMODE = 2
 };
 
+// Text Alignment
 enum ALLEGRO_ALIGN {
     ALLEGRO_ALIGN_REF_LEFT = 0,
     ALLEGRO_ALIGN_REF_RIGHT = 2

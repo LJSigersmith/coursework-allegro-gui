@@ -48,7 +48,6 @@ ECGraphicViewImp :: ~ECGraphicViewImp()
 // Show the view. This would enter a forever loop, until quit is set
 void ECGraphicViewImp :: Show()
 {
-    cout << "Show" << endl;
     //
     //int cursorxDown=-100, cursoryDown=-100, cursorxUp=-100, cursoryUp=-100;
     while(true)
@@ -142,7 +141,7 @@ void ECGraphicViewImp :: RenderStart()
 void ECGraphicViewImp :: RenderEnd()
 {
 //    al_draw_bitmap(algBitmap, GetPosX(), GetPosY(), 0);
-    //al_flip_display();
+    al_flip_display();
 }
 
     
@@ -382,16 +381,13 @@ void ECGraphicViewImp :: DrawFilledEllipse(int xcenter, int ycenter, double radi
 }
 
 void ECGraphicViewImp :: DrawText(float x, float y, float sz, ALLEGRO_COLOR color, int alignment, string text) {
-    cout << "Drawing Text" << endl;
     al_init_font_addon();
     al_init_ttf_addon();
-    cout << "Addons Init" << endl;
     
     ALLEGRO_FONT* font = al_load_font("font.ttf", sz, 0);
     const char* _text = text.c_str();
-    cout << "INPUT: " << _text << endl;
-    //al_draw_text(font, color, x, y, alignment, _text);
     al_draw_text(font, color, x, y, alignment, _text);
+
     // Check font is loaded
     if (!font) {
         fprintf(stderr, "failed to load font!\n");
