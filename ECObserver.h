@@ -266,7 +266,7 @@ public:
 
     // Grouping
     bool _hasSelectedObjectInGroup;
-    ECCollectionObject* _selectedGroup;
+    ECGroupObject* _selectedGroup;
     ECWindowObject* _selectedObjectInGroup;
 
     // Arrow Key Movement
@@ -277,6 +277,7 @@ public:
     float x2Difference;
     float y1Difference;
     float y2Difference;
+
     // Difference for Ellipse
     float xCDifference;
     float yCDifference;
@@ -295,6 +296,11 @@ public:
     void DrawAllObjects();
     void DrawRectangle(float x1, float y1, float x2, float y2, int thickness, ECGVColorRef, bool filled);
     void DrawEllipse(int xC, int yC, int xR, int yR, int thickness, ECGVColorRef, bool filled);
+    
+    void DrawRectangle(ECRectObject* rect);
+    void DrawEllipse(ECEllipseObject* ellipse);
+    void DrawGroup(ECGroupObject* group);
+
     void DrawModeLabel();
     void DrawWarningLabel();
     void DrawShapeLabel();
@@ -310,6 +316,9 @@ public:
 
     // Multi Drag Functions
     ECWindowObject* getNewMovingObject(ECWindowObject* original, int x, int y);
+    ECRectObject* getMovingRect(ECRectObject* originalRect, int x, int y);
+    ECEllipseObject* getMovingEllipse(ECEllipseObject* originalEllipse, int x, int y);
+    ECGroupObject* getMovingGroup(ECGroupObject* originalGroup, int x, int y);
 
     // Observer Functions
     void Attach( ECObserver *pObs )
