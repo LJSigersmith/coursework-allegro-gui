@@ -62,6 +62,14 @@ enum ECGRAPHICVIEW_MODE {
     ECGRAPHICVIEW_INSERTIONMODE = 2
 };
 
+// Shape Mode
+enum ECGRAPHICVIEW_SHAPE {
+    ECGRAPHICVIEW_SHAPE_RECT = 1,
+    ECGRAPHICVIEW_SHAPE_ELLIPSE = 2,
+    ECGRAPHICVIEW_SHAPE_ELLIPSE_FILLED = 3,
+    ECGRAPHICVIEW_SHAPE_RECT_FILLED = 4
+};
+
 // Text Alignment
 enum ALLEGRO_ALIGN {
     ALLEGRO_ALIGN_REF_LEFT = 0,
@@ -105,6 +113,8 @@ class MouseUp : public ECObserver {
         void Update(ECGVEventTypeRef event);
         void InsertMode();
         void EditMode();
+        void MultiSelect();
+        void EndMultiDrag();
 };
 
 class MouseMoving : public ECObserver {
@@ -116,6 +126,7 @@ class MouseMoving : public ECObserver {
         void Update(ECGVEventTypeRef event);
         void InsertMode();
         void EditMode();
+        void MultiDrag();
 };
 
 class DKeyUp : public ECObserver {
@@ -125,6 +136,16 @@ class DKeyUp : public ECObserver {
         }
         ~DKeyUp() {}
         void Update(ECGVEventTypeRef event);
+};
+
+class GKeyUp : public ECObserver {
+    public :
+        GKeyUp(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~GKeyUp() {}
+        void Update(ECGVEventTypeRef event);
+        void GroupObjects();
 };
 
 class ZKeyUp : public ECObserver {
@@ -145,6 +166,58 @@ class YKeyUp : public ECObserver {
     void Update(ECGVEventTypeRef event);
 };
 
+class FKeyUp : public ECObserver {
+    public :
+        FKeyUp(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~FKeyUp() {}
+
+        void Update(ECGVEventTypeRef event);
+};
+
+class CtrlKeyDown : public ECObserver {
+    public :
+        CtrlKeyDown(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~CtrlKeyDown() {}
+
+        void Update(ECGVEventTypeRef event);
+};
+
+class CtrlKeyUp : public ECObserver {
+    public :
+        CtrlKeyUp(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~CtrlKeyUp() {}
+
+        void Update(ECGVEventTypeRef event);
+};
+
+class ArrowKeyUp : public ECObserver {
+    public :
+        ArrowKeyUp(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~ArrowKeyUp() {}
+
+        void Update(ECGVEventTypeRef event);
+        ECWindowObject* getMovedObject(ECWindowObject* objToMove);
+        int xMovement;
+        int yMovement;
+};
+
+class EscapeKeyUp : public ECObserver {
+    public :
+        EscapeKeyUp(ECObserverSubject* view) {
+            _view = view;
+        }
+        ~EscapeKeyUp() {}
+
+        void Update(ECGVEventTypeRef event);
+};
 //********************************************
 // Observer design pattern: subject
 class ECGraphicViewImp;
@@ -153,13 +226,20 @@ class ECObserverSubject
 {
 public:
     virtual ~ECObserverSubject() {}
+    
     ECObserverSubject() {}
     ECObserverSubject(ECGraphicViewImp* gv);
+    void InitObserver();
+    void setAppDefaults();
+    void attachObservers();
 
     // High Level View Settings
     ECGraphicViewImp* _view;
     ECGRAPHICVIEW_MODE _mode;
+    ECGRAPHICVIEW_SHAPE _shape;
     std::string _modeStr;
+    std::string _shapeStr;
+    std::string _lastShapeStr; // for when switching back to insert from edit
     vector<ECWindowObject*> _undo;
     vector<ECWindowObject*> _redo;
     std::string _warning;
@@ -169,17 +249,37 @@ public:
     bool _mouseDown;
     bool _firstMove;
     int cursorxDown, cursoryDown, cursorxUp, cursoryUp;
-
-    // Edit Mode
-    bool _isEditingRect;
-    ECRectObject* _editingRect;
-    ECWindowObject* _objBeforeEdit;
     float firstClickX;
     float firstClickY;
+
+    // Edit Mode
+    bool _isEditingObj;
+    ECWindowObject* _editingObj;
+    ECWindowObject* _objBeforeEdit;
+    ECWindowObject* _lastDrawnEditObject;
+
+    // Multi Select
+    bool _multiSelectEnabled;
+    bool _multiDragEnabled;
+    vector<ECWindowObject*> _selectedObjects;
+    vector<ECWindowObject*> _movingObjects;
+
+    // Grouping
+    bool _hasSelectedObjectInGroup;
+    ECCollectionObject* _selectedGroup;
+    ECWindowObject* _selectedObjectInGroup;
+
+    // Arrow Key Movement
+    bool _arrowMovementEnabled;
+
+    // Difference For Rect
     float x1Difference;
     float x2Difference;
     float y1Difference;
     float y2Difference;
+    // Difference for Ellipse
+    float xCDifference;
+    float yCDifference;
 
     // Debug
     int id;
@@ -189,12 +289,15 @@ public:
     void FlipDisplay();
     bool isQueueEmpty();
     std::__1::__wrap_iter<ECWindowObject **> objectIndexInWindow(ECWindowObject* obj);
+    std::__1::__wrap_iter<ECWindowObject **> objectIndexInSelectedObjects(ECWindowObject* obj);
 
     // Draw Functions
     void DrawAllObjects();
-    void DrawRectangle(float x1, float y1, float x2, float y2, int thickness, ECGVColorRef);
+    void DrawRectangle(float x1, float y1, float x2, float y2, int thickness, ECGVColorRef, bool filled);
+    void DrawEllipse(int xC, int yC, int xR, int yR, int thickness, ECGVColorRef, bool filled);
     void DrawModeLabel();
     void DrawWarningLabel();
+    void DrawShapeLabel();
 
     // Cursor Functions
     int getCurrentCursorX();
@@ -202,7 +305,11 @@ public:
 
     // Editing Functions
     bool isPointInsideRect(ECRectObject* _rect, float xp, float yp);
-    bool isClickInsideRect(float xp, float yp);
+    bool isPointInsideEllipse(ECEllipseObject*, float xp, float yp);
+    bool isClickInsideObj(float xp, float yp);
+
+    // Multi Drag Functions
+    ECWindowObject* getNewMovingObject(ECWindowObject* original, int x, int y);
 
     // Observer Functions
     void Attach( ECObserver *pObs )
