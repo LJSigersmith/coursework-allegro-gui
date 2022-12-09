@@ -24,8 +24,8 @@ class ECWindowObject {
 
         // If object was created by being edited,
         // store what object was edited
-        ECWindowObject* _editedFrom;
-        ECWindowObject* _inGroup;
+        ECWindowObject* _editedFrom = nullptr;
+        ECWindowObject* _inGroup = nullptr;
         
         ECGVColorRef _color;
         bool _fill;
@@ -34,6 +34,16 @@ class ECWindowObject {
 
         void setFilled(bool filled) { _fill = filled; }
         bool isFilled() { return _fill; }
+
+        bool _createdFromUngrouping = false;
+        ECWindowObject* _fromGroup = nullptr;
+        std::vector<ECWindowObject*>* _associatedFromGroupObjects;
+};
+
+class ECMultiSelectionObject : public ECWindowObject {
+    public :
+        std::vector<ECWindowObject*> _objectsInSelection;
+        std::vector<ECWindowObject*> _objectsBeforeSelectionMoved;
 };
 
 class ECGroupObject : public ECWindowObject {
@@ -41,9 +51,14 @@ class ECGroupObject : public ECWindowObject {
          ECGroupObject() { _isMoving = false; }
          ~ECGroupObject() {}
 
+         ECGroupObject(std::vector<ECWindowObject*> objects) {
+            _collectionObjects = objects;
+         }
+
         bool _isMoving;
         std::vector<ECWindowObject*> _collectionObjects;
-        std::vector<ECWindowObject*> _objectsBeforeGroup;
+        std::vector<ECWindowObject*> _objectsBeforeGroup; // store objects as they were before they were grouped (for creation of group)
+        std::vector<ECWindowObject*> _objectsBeforeUngroup; // store objects as they were before they were ungrouped (if ungrouped by g key)
 
         void addObject(ECWindowObject* obj) { _collectionObjects.push_back(obj); }
         void addObjectFromBeforeGrouping(ECWindowObject* obj) { _objectsBeforeGroup.push_back(obj); }
@@ -56,6 +71,10 @@ class ECGroupObject : public ECWindowObject {
                 obj->_color = color;
             }
         }
+
+        void setDistFromCursor(int cursorX, int cursorY);
+
+        bool _isTemp = false;
 };
 
 // Empty Object, just represents an object that was deleted

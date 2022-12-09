@@ -146,6 +146,7 @@ class GKeyUp : public ECObserver {
         ~GKeyUp() {}
         void Update(ECGVEventTypeRef event);
         void GroupObjects();
+        void UnGroupObjects();
 };
 
 class ZKeyUp : public ECObserver {
@@ -256,7 +257,7 @@ public:
     bool _isEditingObj;
     ECWindowObject* _editingObj;
     ECWindowObject* _objBeforeEdit;
-    ECWindowObject* _lastDrawnEditObject;
+    //ECWindowObject* _lastDrawnEditObject;
 
     // Multi Select
     bool _multiSelectEnabled;
@@ -291,6 +292,8 @@ public:
     bool isQueueEmpty();
     std::__1::__wrap_iter<ECWindowObject **> objectIndexInWindow(ECWindowObject* obj);
     std::__1::__wrap_iter<ECWindowObject **> objectIndexInSelectedObjects(ECWindowObject* obj);
+    std::__1::__wrap_iter<ECWindowObject **> objectIndexInUndoStack(ECWindowObject* obj);
+    std::__1::__wrap_iter<ECWindowObject **> objectIndexInRedoStack(ECWindowObject* obj);
 
     // Draw Functions
     void DrawAllObjects();
@@ -319,6 +322,7 @@ public:
     ECRectObject* getMovingRect(ECRectObject* originalRect, int x, int y);
     ECEllipseObject* getMovingEllipse(ECEllipseObject* originalEllipse, int x, int y);
     ECGroupObject* getMovingGroup(ECGroupObject* originalGroup, int x, int y);
+    void setGroupDistFromCursor(ECGroupObject* group, int x, int y);
 
     // Observer Functions
     void Attach( ECObserver *pObs )
