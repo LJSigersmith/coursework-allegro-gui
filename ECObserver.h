@@ -12,6 +12,8 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <time.h>
 
 #include "ECWindowObject.h"
 
@@ -113,8 +115,10 @@ class MouseUp : public ECObserver {
         void Update(ECGVEventTypeRef event);
         void InsertMode();
         void EditMode();
-        void MultiSelect();
         void EndMultiDrag();
+
+        void SingleSelect();
+        void MultiSelect();
 };
 
 class MouseMoving : public ECObserver {
@@ -127,6 +131,9 @@ class MouseMoving : public ECObserver {
         void InsertMode();
         void EditMode();
         void MultiDrag();
+
+        void SingleSelect();
+        void MultiSelect();
 };
 
 class DKeyUp : public ECObserver {
@@ -146,7 +153,7 @@ class GKeyUp : public ECObserver {
         ~GKeyUp() {}
         void Update(ECGVEventTypeRef event);
         void GroupObjects();
-        void UnGroupObjects();
+        void UnGroupObject();
 };
 
 class ZKeyUp : public ECObserver {
@@ -156,6 +163,10 @@ class ZKeyUp : public ECObserver {
         }
         ~ZKeyUp() {}
         void Update(ECGVEventTypeRef event);
+        void UndoDeletion(ECDeletedObject* dead);
+        void UndoSelection(ECMultiSelectionObject* selection);
+        void UndoGrouping(ECGroupObject* group, ECMultiSelectionObject* from);
+        void UndoUngroup(ECWindowObject* objCreatedFromUngrouping);
 };
 
 class YKeyUp : public ECObserver {
@@ -165,6 +176,10 @@ class YKeyUp : public ECObserver {
     }
     ~YKeyUp() {}
     void Update(ECGVEventTypeRef event);
+    void RedoDeletion(ECDeletedObject* dead);
+    void RedoSelection(ECMultiSelectionObject* selection);
+    void RedoGrouping(ECGroupObject* group, ECMultiSelectionObject* from);
+    void RedoUngroup(ECWindowObject* objCreatedFromUngrouping);
 };
 
 class FKeyUp : public ECObserver {
@@ -234,6 +249,16 @@ public:
     void setAppDefaults();
     void attachObservers();
 
+    // Log
+    ofstream logFile;
+    void CreateLog() {
+        srand(time(NULL));
+        int randomNumber = rand() % 100;
+        std::string logFilename = "log" + std::to_string(randomNumber);
+        cout << "Log File: "  << logFilename << endl;
+        logFile = ofstream(logFilename);
+    }
+
     // High Level View Settings
     ECGraphicViewImp* _view;
     ECGRAPHICVIEW_MODE _mode;
@@ -255,6 +280,7 @@ public:
 
     // Edit Mode
     bool _isEditingObj;
+    bool _singleSelectEnabled;
     ECWindowObject* _editingObj;
     ECWindowObject* _objBeforeEdit;
     //ECWindowObject* _lastDrawnEditObject;
@@ -303,6 +329,8 @@ public:
     void DrawRectangle(ECRectObject* rect);
     void DrawEllipse(ECEllipseObject* ellipse);
     void DrawGroup(ECGroupObject* group);
+    void DrawObject(ECWindowObject* obj);
+    void DrawSelection(ECMultiSelectionObject* selection);
 
     void DrawModeLabel();
     void DrawWarningLabel();
@@ -313,9 +341,9 @@ public:
     int getCurrentCursorY();
 
     // Editing Functions
-    bool isPointInsideRect(ECRectObject* _rect, float xp, float yp);
-    bool isPointInsideEllipse(ECEllipseObject*, float xp, float yp);
-    bool isClickInsideObj(float xp, float yp);
+    ECRectObject* isPointInsideRect(ECRectObject* _rect, float xp, float yp);
+    ECEllipseObject* isPointInsideEllipse(ECEllipseObject*, float xp, float yp);
+    ECWindowObject* isClickInsideObj(float xp, float yp);
 
     // Multi Drag Functions
     ECWindowObject* getNewMovingObject(ECWindowObject* original, int x, int y);
@@ -323,6 +351,8 @@ public:
     ECEllipseObject* getMovingEllipse(ECEllipseObject* originalEllipse, int x, int y);
     ECGroupObject* getMovingGroup(ECGroupObject* originalGroup, int x, int y);
     void setGroupDistFromCursor(ECGroupObject* group, int x, int y);
+    void setWindowObjDistFromCursor(ECWindowObject* obj, int cursosrX, int cursorY);
+    void setSelectionDistFromCursor(ECMultiSelectionObject* obj, int cursosrX, int cursorY);
 
     // Observer Functions
     void Attach( ECObserver *pObs )

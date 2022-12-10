@@ -34,47 +34,59 @@ class ECWindowObject {
 
         void setFilled(bool filled) { _fill = filled; }
         bool isFilled() { return _fill; }
+        virtual void setColor(ECGVColorRef color) = 0;
 
         bool _createdFromUngrouping = false;
         ECWindowObject* _fromGroup = nullptr;
         std::vector<ECWindowObject*>* _associatedFromGroupObjects;
 };
 
+using namespace std;
 class ECMultiSelectionObject : public ECWindowObject {
     public :
+
+        ECMultiSelectionObject() {}
+        ~ECMultiSelectionObject() {}
         std::vector<ECWindowObject*> _objectsInSelection;
         std::vector<ECWindowObject*> _objectsBeforeSelectionMoved;
-};
 
-class ECGroupObject : public ECWindowObject {
-     public :
-         ECGroupObject() { _isMoving = false; }
-         ~ECGroupObject() {}
-
-         ECGroupObject(std::vector<ECWindowObject*> objects) {
-            _collectionObjects = objects;
-         }
-
-        bool _isMoving;
-        std::vector<ECWindowObject*> _collectionObjects;
-        std::vector<ECWindowObject*> _objectsBeforeGroup; // store objects as they were before they were grouped (for creation of group)
-        std::vector<ECWindowObject*> _objectsBeforeUngroup; // store objects as they were before they were ungrouped (if ungrouped by g key)
-
-        void addObject(ECWindowObject* obj) { _collectionObjects.push_back(obj); }
-        void addObjectFromBeforeGrouping(ECWindowObject* obj) { _objectsBeforeGroup.push_back(obj); }
-        std::vector<ECWindowObject*>* objectsInGroup() { return &_collectionObjects; }
-
-        void setAllColor(ECGVColorRef color) {
-            for (auto obj : _collectionObjects) {
+        void addObjectToSelection(ECWindowObject* obj) {
+            _objectsInSelection.push_back(obj);
+        }
+        void addObjectToSelectionBeforeMoved(ECWindowObject* obj) {
+            _objectsBeforeSelectionMoved.push_back(obj);
+        }
+        void setColor(ECGVColorRef color) { 
+            for (auto obj : _objectsInSelection) {
                 std::cout << "setiing color" << std::endl;
                 if (color == ECGV_REF_BLACK) { std::cout<<"BLACK"<<std::endl;}
                 obj->_color = color;
             }
         }
-
-        void setDistFromCursor(int cursorX, int cursorY);
-
-        bool _isTemp = false;
+        bool objectInSelection(ECWindowObject* obj, bool eraseIfFound) {
+            if (_objectsInSelection.size() == 0) { return false; }
+            auto i = _objectsInSelection.begin();
+            for (auto selObj : _objectsInSelection) {
+                if (selObj == obj) {
+                    break;
+                }
+                i++;
+            }
+            if (eraseIfFound && i != _objectsInSelection.end()) { _objectsInSelection.erase(i); }
+            return i != _objectsInSelection.end();
+        }
+        bool objectInSelectionBeforeMoved(ECWindowObject* obj, bool eraseIfFound) {
+            if (_objectsBeforeSelectionMoved.size() == 0) { return false; }
+            auto i = _objectsBeforeSelectionMoved.begin();
+            for (auto selObj : _objectsBeforeSelectionMoved) {
+                if (selObj == obj) {
+                    break;
+                }
+                i++;
+            }
+            if (eraseIfFound && i != _objectsBeforeSelectionMoved.end()) { _objectsBeforeSelectionMoved.erase(i); }
+            return i != _objectsBeforeSelectionMoved.end();
+        }
 };
 
 // Empty Object, just represents an object that was deleted
@@ -86,6 +98,8 @@ class ECDeletedObject : public ECWindowObject {
         }
         ~ECDeletedObject() {}
 
+
+        void setColor(ECGVColorRef color) { std::cout << "don't do this" << std::endl; }
         ECWindowObject* _alive;
 };
 
@@ -130,6 +144,8 @@ public :
     int _x2DistFromCursor;
     int _y1DistFromCursor;
     int _y2DistFromCursor;
+
+    void setColor(ECGVColorRef color) { _color = color; }
 
     void setDistFromCursor(int cursorX, int cursorY) {
         _x1DistFromCursor = cursorX - _x1;
@@ -205,6 +221,96 @@ class ECEllipseObject : public ECWindowObject {
         void getDistFromCursor(int &xcDist, int &ycDist) {
             xcDist = _xCDistFromCursor;
             ycDist = _yCDistFromCursor;
+        }
+
+        void setColor(ECGVColorRef color) { _color = color; }
+};
+
+class ECGroupObject : public ECWindowObject {
+     public :
+         ECGroupObject() { _isMoving = false; }
+         ~ECGroupObject() {}
+
+        ECGroupObject(ECGroupObject* group) {
+            for (auto obj : group->_collectionObjects) {
+                ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
+                ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(ellipse);
+                ECGroupObject* group = dynamic_cast<ECGroupObject*>(group);
+                
+                ECWindowObject* newObject;
+                if (rect) {
+                    ECRectObject* newRect = new ECRectObject(rect);
+                    newObject = newRect;
+                } else if (ellipse) {
+                    ECEllipseObject* newEllipse = new ECEllipseObject(ellipse);
+                    newObject = newEllipse;
+                } else if (group) {
+                    ECGroupObject* newGroup = new ECGroupObject(group);
+                    newObject = newGroup;
+                }
+
+                _collectionObjects.push_back(newObject);
+            }
+            _objectsBeforeGroup = vector<ECWindowObject*>(group->_objectsBeforeGroup.begin(), group->_objectsBeforeGroup.end());
+        }
+
+        ECGroupObject(ECGroupObject* group, ECWindowObject* without) {
+            for (auto obj : group->_collectionObjects) {
+                if (obj == without) { continue; }
+                ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
+                ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(ellipse);
+                ECGroupObject* group = dynamic_cast<ECGroupObject*>(group);
+                
+                ECWindowObject* newObject;
+                if (rect) {
+                    ECRectObject* newRect = new ECRectObject(rect);
+                    newObject = newRect;
+                } else if (ellipse) {
+                    ECEllipseObject* newEllipse = new ECEllipseObject(ellipse);
+                    newObject = newEllipse;
+                } else if (group) {
+                    ECGroupObject* newGroup = new ECGroupObject(group);
+                    newObject = newGroup;
+                }
+
+                _collectionObjects.push_back(newObject);
+            }
+            _objectsBeforeGroup = vector<ECWindowObject*>(group->_objectsBeforeGroup.begin(), group->_objectsBeforeGroup.end());
+        }
+
+         ECGroupObject(std::vector<ECWindowObject*> objects) {
+            _collectionObjects = objects;
+         }
+
+        bool _isMoving;
+        std::vector<ECWindowObject*> _collectionObjects;
+        std::vector<ECWindowObject*> _objectsBeforeGroup; // store objects as they were before they were grouped (for creation of group)
+        std::vector<ECWindowObject*> _objectsBeforeUngroup; // store objects as they were before they were ungrouped (if ungrouped by g key)
+
+        void addObject(ECWindowObject* obj) { _collectionObjects.push_back(obj); }
+        void addObjectFromBeforeGrouping(ECWindowObject* obj) { _objectsBeforeGroup.push_back(obj); }
+        std::vector<ECWindowObject*>* objectsInGroup() { return &_collectionObjects; }
+
+        void setDistFromCursor(int cursorX, int cursorY);
+
+        void removeObjFromGroup(ECWindowObject* objToRemove) {
+            auto i = _collectionObjects.begin();
+            for (auto obj : _collectionObjects) {
+                if (obj == objToRemove) {
+                    break;
+                }
+            }
+            if (i != _collectionObjects.end()) { _collectionObjects.erase(i); }
+        }
+
+        bool _isTemp = false;
+
+        void setColor(ECGVColorRef color) { 
+            for (auto obj : _collectionObjects) {
+                std::cout << "setiing color" << std::endl;
+                if (color == ECGV_REF_BLACK) { std::cout<<"BLACK"<<std::endl;}
+                obj->_color = color;
+            }
         }
 };
 

@@ -150,45 +150,37 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
 void CtrlKeyDown::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_DOWN_CTRL) { return; }
     if (_view->_mode != ECGRAPHICVIEW_EDITMODE) { return; }
-    if (_view->_multiDragEnabled) { return; }
+    //if (_view->_multiDragEnabled) { return; }
     if (_view->_windowObjects.size() == 0) { return; }
 
+    _view->_multiSelectEnabled = true;
+    _view->_singleSelectEnabled = false; // change this to an enum for edit mode
     _view->_warning = "Multi Select ON";
+
+    _view->logFile << "Ctrl Key Down" << endl;
+
+    ECMultiSelectionObject* selectionObj = new ECMultiSelectionObject();
+    _view->_editingObj = selectionObj;
+    _view->_isEditingObj = false;
+
     _view->Clear(ECGV_REF_WHITE);
     _view->DrawAllObjects();
-
-    _view->_multiSelectEnabled = true;
 }
 
 // ============================ Ctrl Key Up =================================
 void CtrlKeyUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_UP_CTRL) { return; }
     if (_view->_mode != ECGRAPHICVIEW_EDITMODE) { return; }
-    if (_view->_multiDragEnabled) { return; }
-    if (_view->_selectedObjects.size() == 0) { _view->_multiSelectEnabled = false; _view->_multiDragEnabled = false; _view->_warning = ""; _view->Clear(ECGV_REF_WHITE); _view->DrawAllObjects(); return; }
+    //if (_view->_multiDragEnabled) { return; }
+    //if (_view->_selectedObjects.size() == 0) { _view->_multiSelectEnabled = false; _view->_warning = ""; _view->Clear(ECGV_REF_WHITE); _view->DrawAllObjects(); return; }
 
-    // If multi select enabled, disable it and enable multi drag
+    // If multi select enabled, disable it and enable editing Obj
     if (_view->_multiSelectEnabled) {
-        _view->_multiSelectEnabled = false;
-        _view->_multiDragEnabled = true;
+        //_view->_multiSelectEnabled = false;
         _view->_warning = "";
-
-        int cursorX = _view->getCurrentCursorX();
-        int cursorY = _view->getCurrentCursorY();
-        
-        // Remove each object from window
-        for (auto obj : _view->_selectedObjects) {
-            auto i = _view->objectIndexInWindow(obj);
-            _view->_windowObjects.erase(i);
-        }
-
-        // Create temp group that is being moved
-        ECGroupObject* temp = new ECGroupObject(_view->_selectedObjects);
-        _view->setGroupDistFromCursor(temp, cursorX, cursorY);
-        temp->_isTemp = true;
-        _view->_editingObj = temp;
         _view->_isEditingObj = true;
-        _view->_windowObjects.push_back(temp);
+        
+        _view->logFile << "Ctrl Key Up" << endl;
 
         _view->Clear(ECGV_REF_WHITE);
         _view->DrawAllObjects();
@@ -199,7 +191,8 @@ void CtrlKeyUp::Update(ECGVEventTypeRef event) {
 // Switch Between Filled and Unfilled
 void FKeyUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_UP_F) { return; }
-    cout << "FKEY" << endl;
+
+    _view->logFile << "F Key Up" << endl;
 
     // In edit mode: doesn't matter what shape mode is enabled
     if (_view->_mode == ECGRAPHICVIEW_EDITMODE) { _view->_warning = "Can't change shapes in Edit Mode"; return; }
@@ -215,144 +208,42 @@ void FKeyUp::Update(ECGVEventTypeRef event) {
     else { throw runtime_error("SHAPE is not defined : FKey"); }
 
     _view->_lastShapeStr = _view->_shapeStr;
+    _view->logFile << "SHAPE MODE: " << _view->_shapeStr << endl;
 
     _view->Clear(ECGV_REF_WHITE);
     _view->DrawAllObjects();
 }
 
 // ============================== G Key Up ====================================
-void GKeyUp::GroupObjects() {
-    // Stop Dragging
-    _view->_multiDragEnabled = false;
-
-    // Mouse has either moved since ending select and pressing g or has not
-    // If mouse hasn't moved, moving objects will be empty
-    std::vector<ECWindowObject*>* _targetObjects;
-    bool objectsHaveMoved = false;
-    if (_view->_movingObjects.size() == 0) {
-        _targetObjects = &(_view->_selectedObjects);
-    } else if (_view->_movingObjects.size() != 0 && _view->_selectedObjects.size() != 0) {
-        _targetObjects = &(_view->_movingObjects);
-        objectsHaveMoved = true;
-    } else {
-        throw runtime_error("No objects to group");
-    }
-
-    // Remove all group objects from window
-    for (auto groupObj : *_targetObjects) {
-        auto i = _view->objectIndexInWindow(groupObj);
-        if (i == _view->_windowObjects.end()) { continue; }
-        _view->_windowObjects.erase(i);
-    }
-
-    // Make New Group, set each object in group to be a member of group, and add obj to group
-    // Create new instance of each object when adding to group
-    ECGroupObject* newGroup = new ECGroupObject();
-    for (auto obj : *_targetObjects) {
-        ECWindowObject* groupObj;
-        if (auto rect = dynamic_cast<ECRectObject*>(obj)) { groupObj = new ECRectObject(rect); }
-        else if (auto ellipse = dynamic_cast<ECEllipseObject*>(obj)) { groupObj = new ECEllipseObject(ellipse); }
-        else { throw runtime_error("Creating new group : selected obj is not rect or ellipse"); }
-        
-        groupObj->_inGroup = newGroup;
-        groupObj->_color = ECGV_REF_BLACK;
-        newGroup->addObject(groupObj);
-        newGroup->addObjectFromBeforeGrouping(obj);
-    }
-    newGroup->_editedFrom = nullptr;
-
-    // Add Group to Window and Undo stack
-    _view->_windowObjects.push_back(newGroup);
-    _view->_undo.push_back(newGroup);
-
-    _view->_warning = "Shapes Grouped";
-
-    _view->_movingObjects.clear();
-    _view->_selectedObjects.clear();
-
-    _view->Clear(ECGV_REF_WHITE);
-    _view->DrawAllObjects();
-}
-
-void GKeyUp::UnGroupObjects() {
-    cout << "ungroup" << endl;
-    // Done with multiselect/drag
-    _view->_multiSelectEnabled = false;
-    _view->_multiDragEnabled = false;
-    // Done with grouping
-    _view->_hasSelectedObjectInGroup = false;
-
-    ECGroupObject* group = _view->_selectedGroup;
-    
-    // Remove group from the window
-    auto groupIndexInWindow = _view->objectIndexInWindow(group);
-    if (groupIndexInWindow == _view->_windowObjects.end()) { throw runtime_error("group not in window"); }
-    _view->_windowObjects.erase(groupIndexInWindow);
-
-    // Each new object will need to removed if this ungrouping is undone
-    // Store newly created objects
-    vector<ECWindowObject*>* newlyCreated = new vector<ECWindowObject*>;
-
-    // Add each object in group to window, creating a new instance of each object
-    for (auto groupObj : group->_collectionObjects) {
-        ECRectObject* rect = dynamic_cast<ECRectObject*>(groupObj);
-        ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(groupObj);
-
-        ECWindowObject* obj;
-        if (rect) { obj = new ECRectObject(rect); }
-        if (ellipse) { obj = new ECEllipseObject(ellipse); }
-
-        obj->_createdFromUngrouping = true;
-        obj->_fromGroup = group;
-        obj->_associatedFromGroupObjects = newlyCreated;
-
-       newlyCreated->push_back(obj);
-    }
-
-    // Add new objects to window and modify undo stack
-    for (auto newObj : *(newlyCreated)) {
-        cout << "Adding obj to window" << endl;
-        newObj->_color = ECGV_REF_BLACK;
-        _view->_windowObjects.push_back(newObj);
-        _view->_undo.push_back(newObj);
-    }
-
-    _view->_warning = "Shapes Ungrouped";
-    
-    _view->_movingObjects.clear();
-    _view->_selectedObjects.clear();
-    
-    _view->_isEditingObj = false;
-    _view->_editingObj = nullptr;
-
-    _view->Clear(ECGV_REF_WHITE);
-    _view->DrawAllObjects();
-}
-// Switch Between Ellipse and Rectangle
+// Switch Between Ellipse and Rectangle or Group / Ungroup
 void GKeyUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_UP_G) { return; }
-
+    _view->logFile << "G Key Up" << endl;
     // In edit mode: grouping
     if (_view->_mode == ECGRAPHICVIEW_EDITMODE) { 
         if (_view->_multiSelectEnabled) {
-            _view->_warning = "Finish Selecting to Group";
-            _view->Clear(ECGV_REF_WHITE);
-            _view->DrawAllObjects();
-            return;
-        } else if (_view->_multiDragEnabled) {
-            GroupObjects();
-            return;
-        } else if (_view->_hasSelectedObjectInGroup) {
-            UnGroupObjects();
-            return;
-        } else {
-            _view->_warning = "Select Shapes to Group";
-            _view->Clear(ECGV_REF_WHITE);
-            _view->DrawAllObjects();
-            return;
+            if (ECMultiSelectionObject* selection = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj)) {
+                if (selection->_objectsInSelection.size() != 0) {
+                    GroupObjects();
+                    return;
+                } else {
+                    _view->_warning = "Select Objects to Group";
+                    _view->Clear(ECGV_REF_WHITE);
+                    _view->DrawAllObjects();
+                    return;
+                }
+            } else {
+                throw runtime_error("Multi Select Enabled but no selection object is being edited");
+            }
+        } else if (_view->_singleSelectEnabled) {
+            if (_view->_hasSelectedObjectInGroup) {
+                UnGroupObject();
+                return;
+            }
         }
     }
     
+    if (_view->_mode == ECGRAPHICVIEW_INSERTIONMODE) {
     // Switch Shape Mode to Ellipse
     if (_view->_shape == ECGRAPHICVIEW_SHAPE_RECT) { _view->_shape = ECGRAPHICVIEW_SHAPE_ELLIPSE; _view->_shapeStr = "Ellipse"; }
     else if (_view->_shape == ECGRAPHICVIEW_SHAPE_RECT_FILLED) { _view->_shape = ECGRAPHICVIEW_SHAPE_ELLIPSE_FILLED; _view->_shapeStr = "Filled Ellipse"; }
@@ -363,7 +254,138 @@ void GKeyUp::Update(ECGVEventTypeRef event) {
     
     else { throw runtime_error("SHAPE is not defined : GKey"); }
 
+    _view->logFile << "FILL MODE: " << _view->_shapeStr << endl;
     _view->_lastShapeStr = _view->_shapeStr;
+
+    _view->Clear(ECGV_REF_WHITE);
+    _view->DrawAllObjects();
+    }
+}
+
+void GKeyUp::GroupObjects() {
+
+    _view->logFile << "G Key Up : Grouping Objects" << endl;
+    ECMultiSelectionObject *selection = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj);
+
+    // If selection hasn't moved since objects were selected, remove them from window
+    for (auto obj : selection->_objectsInSelection) {
+        auto i = _view->objectIndexInWindow(obj);
+        if (i != _view->_windowObjects.end()) {
+            _view->_windowObjects.erase(i);
+        }
+    }
+
+    // Make New Group, set each object in group to be a member of group, and add obj to group
+    // Create new instance of each object when adding to group
+    ECGroupObject* newGroup = new ECGroupObject();
+    for (auto obj : selection->_objectsInSelection) {
+        ECWindowObject* groupObj;
+        if (auto rect = dynamic_cast<ECRectObject*>(obj)) { groupObj = new ECRectObject(rect); }
+        else if (auto ellipse = dynamic_cast<ECEllipseObject*>(obj)) { groupObj = new ECEllipseObject(ellipse); }
+        else if (auto group = dynamic_cast<ECGroupObject*>(obj)) { groupObj = new ECGroupObject(group); }
+        else { throw runtime_error("Creating new group : selected obj is not rect or ellipse"); }
+        
+        groupObj->_inGroup = newGroup;
+        groupObj->setColor(ECGV_REF_BLACK);
+        newGroup->addObject(groupObj);
+        newGroup->addObjectFromBeforeGrouping(obj);
+    }
+    newGroup->_editedFrom = selection;
+
+    // Add Group to Window
+    _view->_windowObjects.push_back(newGroup);
+
+    // Modify Undo Stack
+    // If ediitng Obj, objects have moved, so need to store that for undo
+    if (_view->_isEditingObj) {
+        _view->_undo.push_back(selection);
+    }
+    // Regardless of editing Obj or not, grouping needs to be undone for undo
+    _view->_undo.push_back(newGroup);
+
+    _view->_warning = "Shapes Grouped";
+
+    _view->_multiSelectEnabled = false;
+    _view->_singleSelectEnabled = true;
+
+    _view->_isEditingObj = false;
+    _view->_editingObj = nullptr;
+    _view->_objBeforeEdit = nullptr;
+
+    _view->Clear(ECGV_REF_WHITE);
+    _view->DrawAllObjects();
+}
+
+void GKeyUp::UnGroupObject() {
+
+    // If the group hasn't moved since being selected (still in windowObjects), remove the group from the window
+    auto i = _view->objectIndexInWindow(_view->_editingObj);
+    if (i != _view->_windowObjects.end()) {
+        cout << "erasing gorup" << endl;
+        _view->_windowObjects.erase(i);
+    }
+
+    ECWindowObject* primaryObject = _view->_selectedObjectInGroup;
+    ECGroupObject* selectedGroup = dynamic_cast<ECGroupObject*>(_view->_editingObj);
+    if (!selectedGroup) { throw runtime_error("Editing Obejct is not a Group when Ungrouping"); }
+    
+    // Make new group without selected object
+    ECGroupObject* newGroup = new ECGroupObject(selectedGroup, primaryObject);
+
+    // Make new object for selected object
+    ECRectObject* rect = dynamic_cast<ECRectObject*>(primaryObject);
+    ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(primaryObject);
+    ECGroupObject* group = dynamic_cast<ECGroupObject*>(primaryObject);
+    
+    ECWindowObject* newObject;
+    if (rect) {
+        ECRectObject* newRect = new ECRectObject(rect);
+        newObject = newRect;
+    } else if (ellipse) {
+        ECEllipseObject* newEllipse = new ECEllipseObject(ellipse);
+        newObject = newEllipse;
+    } else if (group) {
+        ECGroupObject* nGroup = new ECGroupObject(group);
+        newObject = nGroup;
+    }
+
+    newObject->_createdFromUngrouping = true;
+    newObject->_fromGroup = selectedGroup;
+
+    // Set color to black
+    newObject->setColor(ECGV_REF_BLACK);
+    newGroup->setColor(ECGV_REF_BLACK);
+
+    // Modify Undo Stack
+    // Add to window
+
+    // If the new group has only one object
+    if (newGroup->_collectionObjects.size() == 1) {
+        ECWindowObject* objFromGroup = newGroup->_collectionObjects[0];
+        _view->_undo.push_back(objFromGroup);
+        _view->_undo.push_back(newObject);
+
+        _view->_windowObjects.push_back(objFromGroup);
+        _view->_windowObjects.push_back(newObject);
+    } else {
+        _view->_undo.push_back(newGroup);
+        _view->_undo.push_back(newObject);
+
+        _view->_windowObjects.push_back(newGroup);
+        _view->_windowObjects.push_back(newObject);
+    }
+
+    // Done editing for now
+    _view->_isEditingObj = false;
+    _view->_editingObj = nullptr;
+    _view->_objBeforeEdit = nullptr;
+
+    // Done grouping
+    _view->_hasSelectedObjectInGroup = false;
+    _view->_selectedGroup = nullptr;
+    _view->_selectedObjectInGroup = nullptr;
+
+    _view->_warning = "Shape Removed From Group";
 
     _view->Clear(ECGV_REF_WHITE);
     _view->DrawAllObjects();
@@ -371,8 +393,10 @@ void GKeyUp::Update(ECGVEventTypeRef event) {
 
 // ============================== Space Up ====================================
 // Switch Between Insert and Edit Modes
+
 void SpaceUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_UP_SPACE) { return; }
+    _view->logFile << "Space Key Up" << endl;
     
     _view->_warning = "";
 
@@ -382,16 +406,17 @@ void SpaceUp::Update(ECGVEventTypeRef event) {
     else if (_view->_mode == ECGRAPHICVIEW_INSERTIONMODE) { _view->_mode = ECGRAPHICVIEW_EDITMODE; _view->_modeStr = "Edit Mode"; _view->_lastShapeStr = _view->_shapeStr; _view->_shapeStr = ""; }
     else { throw runtime_error("MODE is not defined"); }
 
+    _view->logFile << "MODE: " << _view->_modeStr << endl;
     _view->Clear(ECGV_REF_WHITE);
     _view->DrawAllObjects();
 }
 
 // ============================== Y Key Up ====================================
-
 // Redo
 void YKeyUp::Update(ECGVEventTypeRef event) {
     
     if (event != ECGV_REF_EV_KEY_UP_Y) { return; }
+    _view->logFile << "Y Key Up" << endl;
     _view->Clear((ECGVColorRef) ECGV_WHITE);
 
     // If nothing to redo, set warning and return
@@ -405,81 +430,39 @@ void YKeyUp::Update(ECGVEventTypeRef event) {
 
     ECWindowObject* objToRedo = _view->_redo.back();
 
-    // If the obj to redo was deleted, then we need to redo deletion
-    if (ECDeletedObject* dead = dynamic_cast<ECDeletedObject*>(objToRedo)) {
-        
-        // Get object in window, check if it exists
-        auto i = _view->objectIndexInWindow(dead->_alive);
-        if (i == _view->_windowObjects.end()) { return; }
-        //auto i = _view->_windowObjects.begin();
-        //for (ECWindowObject* obj : _view->_windowObjects) {
-        //    if (obj == dead->_alive) {
-        // Delete object from window, modify undo and redo stack and return
-        _view->_windowObjects.erase(i);
-        _view->_redo.pop_back();
-        _view->_undo.push_back(objToRedo);
-            //}
-            //i++;
-        //}
-        _view->DrawAllObjects();
-        return;
+    // Check what type of object is being redone
+    ECDeletedObject* dead = dynamic_cast<ECDeletedObject*>(objToRedo);
+    ECMultiSelectionObject* selection = dynamic_cast<ECMultiSelectionObject*>(objToRedo);
+    ECGroupObject* group = dynamic_cast<ECGroupObject*>(objToRedo);
+    
+    if (dead) {
+        RedoDeletion(dead); return;
+    } else if (selection) {
+        RedoSelection(selection); return;
+    } else if (objToRedo->_createdFromUngrouping) {
+        RedoUngroup(objToRedo); return;
+    } else if (group) {
+        ECMultiSelectionObject *groupFrom = dynamic_cast<ECMultiSelectionObject*>(group->_editedFrom);
+        if (groupFrom) {
+            RedoGrouping(group, groupFrom); return;
+            return;
+        }
     }
 
     // If object wasn't deleted, it was either drawn or edited
     ECWindowObject* obj = objToRedo;
 
-    // Object created by ungrouping
-    if (obj->_createdFromUngrouping) {
-        // Remove group from window
-        ECGroupObject* fromGroup = dynamic_cast<ECGroupObject*>(obj->_fromGroup);
-        auto groupIndexInWindow = _view->objectIndexInWindow(fromGroup);
-        _view->_windowObjects.erase(groupIndexInWindow);
-
-        // Restore objects created from ungrouping
-        vector<ECWindowObject*>* _associatedUngroupedObjects = obj->_associatedFromGroupObjects;
-        for (auto objToRestore : *_associatedUngroupedObjects) {
-            _view->_windowObjects.push_back(objToRestore);
-        }
-
-        // Modify Redo Stack
-        for (auto objToRemoveFromRedo : *_associatedUngroupedObjects) {
-            auto i = _view->objectIndexInRedoStack(objToRemoveFromRedo);
-            if (i == _view->_redo.end()) { cout << "REDO: Not found in window" << endl; continue; }
-            _view->_redo.erase(i);
-        }
-
-        // Modify Undo Stack
-        for (auto objToUndo : *_associatedUngroupedObjects) {
-            _view->_undo.push_back(objToUndo);
-        }
-
-        _view->_warning = "Shapes Ungrouped";
-        _view->DrawAllObjects();
-        return;
-    }
-
     // Grouped Object
     // If the grouped object wasn't edited from anything, then it was created by grouping
     // Redo the grouping
-    if (auto groupToReGroup = dynamic_cast<ECGroupObject*>(objToRedo)) {
-        if (groupToReGroup->_editedFrom == NULL) {
-            // Remove the individual objects that will make up the new group from the window
-            for (auto objBeforeGrouping : groupToReGroup->_objectsBeforeGroup) {
-                auto objBeforeGroupIndex = _view->objectIndexInWindow(objBeforeGrouping);
-                if (objBeforeGroupIndex == _view->_windowObjects.end()) { throw runtime_error("Object to be regrouped is not in window before regrouping"); }
-                _view->_windowObjects.erase(objBeforeGroupIndex);
-            }
-            _view->_warning = "Regrouped";
-            // Add the group made of the objects to the window
-            obj = groupToReGroup;
-        }
-    }
 
     // Add it back to window, modify undo and redo stack
     _view->_windowObjects.push_back(obj);
     _view->_undo.push_back(obj);
     _view->_redo.pop_back();
     
+    // If its just a regular object, it was either moved or drawn
+
     // If object wasn't created from an edit, return
     ECWindowObject* objToRemove = objToRedo->_editedFrom;
     if (objToRemove == NULL) {
@@ -495,11 +478,172 @@ void YKeyUp::Update(ECGVEventTypeRef event) {
 
 }
 
-// ============================== Z Key Up ====================================
 
+void YKeyUp::RedoDeletion(ECDeletedObject* dead) {
+    // Get object in window, check if it exists
+    auto i = _view->objectIndexInWindow(dead->_alive);
+    if (i == _view->_windowObjects.end()) { throw runtime_error("Object to be deleted not in window"); }
+
+    // Delete object from window, modify undo and redo stack and return
+    _view->_windowObjects.erase(i);
+    _view->_redo.pop_back();
+    _view->_undo.push_back(dead);
+    _view->DrawAllObjects();
+
+    return;
+}
+void YKeyUp::RedoSelection(ECMultiSelectionObject* selection) {
+
+    // Remove objects from before from window
+    for (auto obj : selection->_objectsBeforeSelectionMoved) {
+         auto i = _view->objectIndexInWindow(obj);
+        if (i == _view->_windowObjects.end()) { throw runtime_error("Object in selection before is null at redo"); }
+        _view->_windowObjects.erase(i);
+    }
+
+    // Add objects from after move to window
+    for (auto obj : selection->_objectsInSelection) {
+        _view->_windowObjects.push_back(obj);
+    }
+
+    _view->_redo.pop_back();
+    _view->_undo.push_back(selection);
+    _view->DrawAllObjects();
+
+}
+void YKeyUp::RedoGrouping(ECGroupObject* group, ECMultiSelectionObject* from) {
+    // Remove the individual objects that will make up the new group from the window
+    for (auto obj : from->_objectsInSelection) {
+        auto i = _view->objectIndexInWindow(obj);
+        if (i == _view->_windowObjects.end()) { throw runtime_error("Object to be regrouped is not in window before regrouping"); }
+        _view->_windowObjects.erase(i);
+    }
+    _view->_warning = "Regrouped Shapes";
+    
+    // Add the group made of the objects to the window
+    _view->_windowObjects.push_back(group);
+
+    _view->_undo.push_back(group);
+    _view->_redo.pop_back();
+    _view->DrawAllObjects();
+
+}
+void YKeyUp::RedoUngroup(ECWindowObject* objCreatedFromUngrouping) {
+
+    // Add Object Created From Ungrouping To Window
+    _view->_windowObjects.push_back(objCreatedFromUngrouping);
+    
+    // Get Group Created After Ungrouping
+    // This could be just an object (if the group after ungrouping an object only had one object in it)
+    _view->_redo.pop_back();
+    ECWindowObject* groupAfterUngroup = _view->_redo.back();
+    if (!groupAfterUngroup) { throw runtime_error("group after ungroup is null : wasn't pushed to redo"); }
+
+    // Add it to the window
+    _view->_windowObjects.push_back(groupAfterUngroup);
+
+    // Remove group that object was created from from window
+    ECGroupObject* fromGroup = dynamic_cast<ECGroupObject*>(objCreatedFromUngrouping->_fromGroup);
+    if (!fromGroup) { throw runtime_error("group object created from is null at redo time");}
+    auto i = _view->objectIndexInWindow(fromGroup);
+    if (i == _view->_windowObjects.end()) { throw runtime_error("from group not in window");}
+    _view->_windowObjects.erase(i);
+
+    _view->_undo.push_back(groupAfterUngroup);
+    _view->_undo.push_back(objCreatedFromUngrouping);
+
+    _view->_redo.pop_back();
+    _view->DrawAllObjects();
+}
+// ============================== Z Key Up ====================================
 // Undo
+void ZKeyUp::UndoDeletion(ECDeletedObject* dead) {
+    _view->_windowObjects.push_back(dead->_alive);
+    _view->_undo.pop_back();
+    _view->_redo.push_back(dead);
+    _view->DrawAllObjects();
+}
+void ZKeyUp::UndoSelection(ECMultiSelectionObject* selection) {
+    
+    // Remove all the objects from after selection from window
+    for (auto obj : selection->_objectsInSelection) {
+        auto i = _view->objectIndexInWindow(obj);
+        if (i == _view->_windowObjects.end()) { throw runtime_error("Object in Selection Does not exist when undone in window");}
+        _view->_windowObjects.erase(i);
+    }
+
+    // Add each object from before selection to window
+    for (auto obj : selection->_objectsBeforeSelectionMoved) {
+        obj->setColor(ECGV_REF_BLACK);
+        _view->_windowObjects.push_back(obj);
+    }
+
+    _view->_undo.pop_back();
+    _view->_redo.push_back(selection);
+    _view->DrawAllObjects();
+}
+void ZKeyUp::UndoGrouping(ECGroupObject* group, ECMultiSelectionObject* from) {
+
+    // Remove group from window
+    auto i = _view->objectIndexInWindow(group);
+    if (i == _view->_windowObjects.end()) { throw runtime_error("Grouping being undone: group does not exist in window"); }
+    _view->_windowObjects.erase(i);
+
+    // Add objects that made up group back to window as individual objects
+    for (auto objBeforeGrouping : from->_objectsInSelection) {
+        cout << "Object From Before Added to Window" << endl;
+        objBeforeGrouping->setColor(ECGV_REF_BLACK);
+        _view->_windowObjects.push_back(objBeforeGrouping);
+        cout << "Number of Objects in Window Now: " << _view->_windowObjects.size() << endl;
+    }
+    _view->_warning = "Ungrouped Shapes";
+
+    _view->_undo.pop_back();
+    _view->_redo.push_back(group);
+    _view->DrawAllObjects();
+}
+
+void ZKeyUp::UndoUngroup(ECWindowObject* objCreatedFromUngrouping) {
+
+    // Remove object from window
+    auto iObj = _view->objectIndexInWindow(objCreatedFromUngrouping);
+    if (iObj == _view->_windowObjects.end()) { throw runtime_error("objCreatedFromUngrouping is not in window at undo time"); }
+    _view->_windowObjects.erase(iObj);
+
+    // Group was created without split object during ungrouping
+    // That group was either drawn, or it only had one object, so only the object was drawn
+    // Object is either a regular object or a group, either way remove it from window
+    _view->_undo.pop_back();
+    ECWindowObject* objToRemove = dynamic_cast<ECWindowObject*>(_view->_undo.back());
+    auto i = _view->objectIndexInWindow(objToRemove);
+    if (i == _view->_windowObjects.end()) { throw runtime_error("Object from before group was split is not in window at undo time"); }
+    _view->_windowObjects.erase(i);
+
+    // Remove group that was created without split object from window
+    //ECGroupObject* groupWithoutObject = dynamic_cast<ECGroupObject*>(_view->_undo.back());
+    //if (!groupWithoutObject) { throw runtime_error("Group without split object was not pushed to undo before an object created from ungrouping at undo time"); }
+    //auto iGroup = _view->objectIndexInWindow(groupWithoutObject);
+
+    
+    //if (iGroup == _view->_windowObjects.end()) { throw runtime_error("Group without object is not in window");}
+    //_view->_windowObjects.erase(iGroup);
+
+    // Restore group with object to window
+    ECGroupObject* groupToRestore = dynamic_cast<ECGroupObject*>(objCreatedFromUngrouping->_fromGroup);
+    if (!groupToRestore) { throw runtime_error("Group created from ungrouping has null _fromGroup"); }
+    _view->_windowObjects.push_back(groupToRestore);
+
+    _view->_warning = "Regrouped Shapes";
+
+    _view->_undo.pop_back();
+    _view->_redo.push_back(objToRemove);
+    _view->_redo.push_back(objCreatedFromUngrouping);
+    _view->DrawAllObjects();
+
+}
 void ZKeyUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_UP_Z) { return; }
+    _view->logFile << "Z Key Up" << endl;
 
     _view->Clear((ECGVColorRef) ECGV_WHITE);
 
@@ -514,68 +658,46 @@ void ZKeyUp::Update(ECGVEventTypeRef event) {
 
     ECWindowObject* objToUndo = _view->_undo.back();
 
+    // Check what type of object is being undone
+    ECDeletedObject* dead = dynamic_cast<ECDeletedObject*>(objToUndo);
+    ECMultiSelectionObject* selection = dynamic_cast<ECMultiSelectionObject*>(objToUndo);
+    ECGroupObject* group = dynamic_cast<ECGroupObject*>(objToUndo);
+
     // If object was deleted, we need to undo that deletion and add it back to window
-    if (ECDeletedObject* dead = dynamic_cast<ECDeletedObject*>(objToUndo)) {
-        
-        _view->_windowObjects.push_back(dead->_alive);
-        _view->_undo.pop_back();
-        _view->_redo.push_back(objToUndo);
-        _view->DrawAllObjects();
+    if (dead) {
+        UndoDeletion(dead);
         return;
     }
+
+    if (selection) {
+        UndoSelection(selection);
+        return;
+    }
+
+    // If the object was created from ungrouping, we need to add it back to the group and add that group back
+    if (objToUndo->_createdFromUngrouping) {
+        UndoUngroup(objToUndo);
+        return;
+    }
+
+    // If the object is a group, and wasn't created by an edit, we need to remove the group and add the individual objects back
+    if (group) {
+        ECMultiSelectionObject *groupFrom = dynamic_cast<ECMultiSelectionObject*>(group->_editedFrom);
+        if (groupFrom) {
+            UndoGrouping(group, groupFrom);
+            return;
+        }
+    }
+
+    // If its just a regular object, it was either moved or drawn
     
     // Get object in window, if it isn't in window, return
     auto objectIndex = _view->objectIndexInWindow(objToUndo);
-    if (objectIndex == _view->_windowObjects.end()) { return; }
+    if (objectIndex == _view->_windowObjects.end()) { throw runtime_error("Object to Undo is not in window"); }
 
     // Remove object from window
     ECWindowObject* obj = *objectIndex;
     _view->_windowObjects.erase(objectIndex);
-
-    // Object created as a result of ungrouping
-    if (obj->_createdFromUngrouping) {
-        // Remove all the other objects that were made from group when ungrouped from window
-        vector<ECWindowObject*> objectsCreatedFromUngrouping = *(obj->_associatedFromGroupObjects);
-        for (auto objToRemove : objectsCreatedFromUngrouping) {
-            auto i = _view->objectIndexInWindow(objToRemove);
-            if (i == _view->_windowObjects.end()) { cout << "Not found in window" << endl; continue; }
-            _view->_windowObjects.erase(i);
-        }
-
-        // Restore group to window
-        ECGroupObject* fromGroup = dynamic_cast<ECGroupObject*>(obj->_fromGroup);
-        fromGroup->setAllColor(ECGV_REF_BLACK);
-        _view->_windowObjects.push_back(fromGroup);
-
-        // Modify Undo Stack to Remove All Created Objects
-        for (auto objInUndoStack : objectsCreatedFromUngrouping) {
-            auto objUndoIndex = _view->objectIndexInUndoStack(objInUndoStack);
-            _view->_undo.erase(objUndoIndex);
-        }
-
-        // Modify Redo Stack
-        for (auto objInUndoStack : objectsCreatedFromUngrouping) {
-            _view->_redo.push_back(objInUndoStack);
-        }
-
-        _view->_warning = "Shapes Regrouped";
-        _view->DrawAllObjects();
-        return;
-    }
-
-    // Grouped Object
-    if (auto groupToUnGroup = dynamic_cast<ECGroupObject*>(objToUndo)) {
-        if (groupToUnGroup->_editedFrom == NULL) {
-            // Add objects that made up group back to window as individual objects
-            for (auto objBeforeGrouping : groupToUnGroup->_objectsBeforeGroup) {
-                cout << "Object From Before Added to Window" << endl;
-                objBeforeGrouping->_color = ECGV_REF_BLACK;
-                _view->_windowObjects.push_back(objBeforeGrouping);
-                cout << "Number of Objects in Window Now: " << _view->_windowObjects.size() << endl;
-            }
-            _view->_warning = "Ungrouped";
-        }
-    }
 
     // Modify Undo and Redo Stack
     _view->_redo.push_back(objToUndo);
@@ -584,10 +706,8 @@ void ZKeyUp::Update(ECGVEventTypeRef event) {
     // If object was edited from another object, set it to black as it
     // would've been stored blue, and add that object to window
     if (obj->_editedFrom != NULL) {
-        obj->_editedFrom->_color = (ECGVColorRef) ECGV_BLACK;
 
-        if (auto group = dynamic_cast<ECGroupObject*>(obj->_editedFrom)) { group->setAllColor(ECGV_REF_BLACK); }
-
+        obj->_editedFrom->setColor(ECGV_REF_BLACK);
         _view->_windowObjects.push_back(obj->_editedFrom);
     }
     
@@ -596,16 +716,38 @@ void ZKeyUp::Update(ECGVEventTypeRef event) {
 }
 
 // ============================== D Key Up ====================================
-
 // Delete
 void DKeyUp::Update(ECGVEventTypeRef event) {
     
     if (event != ECGV_REF_EV_KEY_UP_D) { return; }
+    _view->logFile << "D Key Up" << endl;
     
     // Can't delete in insertion mode or while editing
-    if (_view->_isEditingObj == false) { return; }
+    //if (_view->_isEditingObj == false) { return; }
     if (_view->_mode == ECGRAPHICVIEW_INSERTIONMODE) { return; }
     
+    if (_view->_multiSelectEnabled) {
+        ECMultiSelectionObject* selection = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj);
+
+        // Create deleted representation of MSObj
+        ECDeletedObject* dead = new ECDeletedObject(selection);
+
+        // Add deletion to undo stack
+        _view->_undo.push_back(selection);
+
+        // Multi Select Done
+        _view->_isEditingObj = false;
+        _view->_editingObj = nullptr;
+        _view->_objBeforeEdit = nullptr;
+
+        _view->_multiSelectEnabled = false;
+        _view->_singleSelectEnabled = true;
+
+        _view->Clear((ECGVColorRef) ECGV_WHITE);
+        _view->DrawAllObjects();
+
+        return;
+    }
     // Get the object that will be deleted
     auto objIndex = _view->objectIndexInWindow(_view->_editingObj);
     if (objIndex == _view->_windowObjects.end()) { 
@@ -615,14 +757,11 @@ void DKeyUp::Update(ECGVEventTypeRef event) {
     
     ECWindowObject* obj = *objIndex;
     // Set object to black as it will have been blue while selected
-    obj->_color = (ECGVColorRef) ECGV_BLACK;
-    if (auto group = dynamic_cast<ECGroupObject*>(obj)) { group->setAllColor(ECGV_REF_BLACK); }
+    obj->setColor(ECGV_REF_BLACK);
+    //if (auto group = dynamic_cast<ECGroupObject*>(obj)) { group->setAllColor(ECGV_REF_BLACK); }
     
     // Create the deleted representation of this object
     ECDeletedObject* dead = new ECDeletedObject(obj);
-                
-    dead->id = _view->id;
-    _view->id += 1;
 
     // Add deletion to undo stack and erase object            
     _view->_undo.push_back(dead);
@@ -641,7 +780,7 @@ void DKeyUp::Update(ECGVEventTypeRef event) {
 // and that there was a click
 void MouseDown::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_MOUSE_BUTTON_DOWN) { return; }
-    
+    _view->logFile << "Mouse Down" << endl;
     cout << "Mouse Down" << endl;
     _view->cursorxDown = _view->getCurrentCursorX();
     _view->cursoryDown = _view->getCurrentCursorY();
@@ -653,74 +792,95 @@ void MouseDown::Update(ECGVEventTypeRef event) {
 
 // ============================ Mouse Moving ==================================
 
-void MouseMoving::MultiDrag() {
-
-    _view->Clear(ECGV_REF_WHITE);
-
-    int x = _view->getCurrentCursorX();
-    int y = _view->getCurrentCursorY();
-
-    // Empty Moving Objects
-    _view->_movingObjects.clear();
-    assert(_view->_movingObjects.size() == 0);
-
-    // Create the moving version of the group
-    //ECGroupObject* temp = 
-
-    // Create the moved version of each selected object
-    // for (auto selectedObj : _view->_selectedObjects) {
-
-    //     ECRectObject* selectedRect = dynamic_cast<ECRectObject*>(selectedObj);
-    //     ECEllipseObject *selectedEllipse = dynamic_cast<ECEllipseObject*>(selectedObj);
-
-    //     if (selectedRect) {
-
-    //         ECRectObject* movingRect = dynamic_cast<ECRectObject*>(_view->getNewMovingObject(selectedRect, x, y));
-    //         _view->_movingObjects.push_back(movingRect);
-    //         _view->DrawRectangle(movingRect->_x1, movingRect->_y1, movingRect->_x2, movingRect->_y2, movingRect->_thickness, movingRect->_color, movingRect->isFilled());
-
-    //     } else if (selectedEllipse) {
-
-    //         ECEllipseObject* movingEllipse = dynamic_cast<ECEllipseObject*>(_view->getNewMovingObject(selectedEllipse,x,y));
-    //         _view->_movingObjects.push_back(movingEllipse);
-    //         _view->DrawEllipse(movingEllipse->_xCenter, movingEllipse->_yCenter, movingEllipse->_xRadius, movingEllipse->_yRadius, movingEllipse->_thickness, movingEllipse->_color, movingEllipse->isFilled());
-
-    //     } else { throw runtime_error("Cast failed : MULTIDRAG"); }
-    // }
-
-    // Delete originals from window
-    for (auto selectedObj : _view->_selectedObjects) {
-        auto selectedObjIndexInWindow = _view->objectIndexInWindow(selectedObj);
-        if (selectedObjIndexInWindow != _view->_windowObjects.end()) {
-            _view->_windowObjects.erase(selectedObjIndexInWindow);
-        }
-    }
-
-    // Draw any unselected previous objects
-    _view->DrawAllObjects();
-}
-
-// If queue is not empty, drawing looks not continuous
-// Make sure everything is up to date by checking queue is empty
 void MouseMoving::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_MOUSE_MOVING ) { return; }
     if (_view->isQueueEmpty() == false) { return; }
+    if (_view->_firstMove) { _view->logFile << "Mouse Began Moving" << endl; }
 
     // In insertion mode, mouse moving is either nothing or there has been a click before
     // If there was a click before, we're drawing an object
     if (_view->_mode == ECGRAPHICVIEW_INSERTIONMODE) { 
-        if(_view->cursorxDown >= 0 && _view->_mouseDown == true) { InsertMode(); }
+        if(_view->cursorxDown >= 0 && _view->_mouseDown == true) { InsertMode(); return; }
     }
     
     // In editing mode, mouse is either just moving around, or we're moving an object
     if (_view->_mode == ECGRAPHICVIEW_EDITMODE) {
+        if (!_view->isQueueEmpty()) { return; }
         if(_view->_arrowMovementEnabled) { return; }
-        //if (_view->_multiDragEnabled) { 
-        //    MultiDrag(); return; 
-            
-        //    }
-        if (_view->_isEditingObj && _view->isQueueEmpty()) { EditMode(); }
+        if (!_view->_isEditingObj) { return; }
+
+        if (_view->_singleSelectEnabled) { SingleSelect(); return; }
+        if (_view->_multiSelectEnabled) { MultiSelect(); return; }
+        //if (_view->_isEditingObj && _view->isQueueEmpty()) { EditMode(); }
     }
+}
+
+void MouseMoving::SingleSelect() {
+    if (_view->_firstMove) {
+        auto i = _view->objectIndexInWindow(_view->_editingObj);
+        if (i == _view->_windowObjects.end()) { return; }
+        _view->_windowObjects.erase(i);
+        _view->_firstMove = false;
+    }
+
+    _view->Clear(ECGV_REF_WHITE);
+    int cursorX = _view->getCurrentCursorX();
+    int cursorY = _view->getCurrentCursorY();
+
+    ECWindowObject* movingObject = _view->getNewMovingObject(_view->_editingObj, cursorX, cursorY);
+    movingObject->setColor(ECGV_REF_BLUE);
+    movingObject->setFilled(movingObject->isFilled());
+
+    _view->DrawObject(movingObject);
+    _view->_editingObj = movingObject;
+
+    _view->DrawAllObjects();
+}
+
+void MouseMoving::MultiSelect() {
+
+    if (_view->_mouseDown) { return; }
+
+    ECMultiSelectionObject* selection = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj);
+
+    int cursorX = _view->getCurrentCursorX();
+    int cursorY = _view->getCurrentCursorY();
+
+    if (_view->_firstMove) {
+        // Remove objects in selection from window
+        for (auto obj : selection->_objectsInSelection) {
+            auto i = _view->objectIndexInWindow(obj);
+            if (i == _view->_windowObjects.end()) { throw runtime_error("Selection object not in window"); }
+            _view->_windowObjects.erase(i);
+
+            _view->setSelectionDistFromCursor(selection, cursorX, cursorY);
+        }
+        _view->_firstMove = false;
+    }
+    _view->Clear(ECGV_REF_WHITE);
+
+    vector<ECWindowObject*> objectsInSelection = selection->_objectsInSelection;
+    selection->_objectsInSelection.clear();
+    assert(selection->_objectsInSelection.size() == 0);
+    
+    // No objects were selected or error, either way end multi select
+    if (objectsInSelection.size() <= 0) {
+        _view->_isEditingObj = false;
+        _view->_editingObj = nullptr;
+        _view->_objBeforeEdit = nullptr;
+
+        _view->_multiSelectEnabled = false;
+        _view->_singleSelectEnabled = true;
+        return;
+    }
+
+    for (auto obj : objectsInSelection) {
+        ECWindowObject* movingObj = _view->getNewMovingObject(obj, cursorX, cursorY);
+        selection->_objectsInSelection.push_back(movingObj);
+    }
+
+    _view->DrawObject(selection);
+    _view->DrawAllObjects();
 }
 
 // Drawing an object
@@ -768,132 +928,11 @@ void MouseMoving::InsertMode() {
 
 }
 
-// Moving an object
-void MouseMoving::EditMode() {
-// If this is the first move, store the object before it was moved
-// If this is undone, we'll need what it was before it was moved
-if (_view->_firstMove) {
-    auto i = _view->objectIndexInWindow(_view->_editingObj);
-    // If object is not in window, either error or moving mouse after having clicked when done moving object : either way return
-    if (i == _view->_windowObjects.end()) { return; }
-    
-    // If object being edited is a group, make copy of all members in group
-    // Make new group with object copies and set that group to objBeforeEdit
-    // ECGroupObject* group = dynamic_cast<ECGroupObject*>(_view->_editingObj);
-    // if (group) {
-    //     // Make copies of objects
-    //     std::vector<ECWindowObject*>* oldObjects = new std::vector<ECWindowObject*>(*group->objectsInGroup());
-        
-    //     // DEBUG: Assert copies are new pointers
-    //     for (auto i : *group->objectsInGroup()) {
-    //         cout << "OLD: " << &i;
-    //     }
-    //     for (auto i : *oldObjects) {
-    //         cout << "COPY: " << &i;
-    //     }
-    //     // END DEBUG
-
-    //     _view->_objBeforeEdit = group;
-    // }
-
-    //_view->_objBeforeEdit = *i;
-    _view->_windowObjects.erase(i);
-    _view->_firstMove = false;
-}
-
-// If its not the first move, then keep moving the object around
-_view->Clear(ECGV_REF_WHITE);
-
-ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(_view->_editingObj);
-ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(_view->_editingObj);
-ECGroupObject* _editingGroup = dynamic_cast<ECGroupObject*>(_view->_editingObj);
-
-// TODO: Delete last drawn obj
-
-// Get the moving version of the object and draw it
-if (_editingRect) {
-    ECRectObject* temp = dynamic_cast<ECRectObject*>(_view->getNewMovingObject(_editingRect, _view->getCurrentCursorX(), _view->getCurrentCursorY()));
-    temp->_color = ECGV_REF_BLUE;
-    temp->setFilled(_editingRect->isFilled());
-
-    _view->DrawRectangle(temp);
-
-    _view->_editingObj = temp;
-
-} else if (_editingEllipse) {
-    ECEllipseObject* temp = dynamic_cast<ECEllipseObject*>(_view->getNewMovingObject(_editingEllipse, _view->getCurrentCursorX(), _view->getCurrentCursorY()));
-    temp->_color = ECGV_REF_BLUE;
-    temp->setFilled(_editingEllipse->isFilled());
-
-    _view->DrawEllipse(temp);
-    
-    _view->_editingObj = temp;
-
-} else if (_editingGroup) {
-    ECGroupObject* temp = dynamic_cast<ECGroupObject*>(_view->getNewMovingObject(_editingGroup, _view->getCurrentCursorX(), _view->getCurrentCursorY()));
-    temp->_isMoving = true; // sets moving colors
-    
-    _view->DrawGroup(temp);
-
-    _view->_editingObj = temp;
-
-} else {
-    throw runtime_error("Both casts NULL while moving object");
-}
-
-// Draw all previous objects to look continuous
-_view->DrawAllObjects();
-}
-
 // ============================== Mouse Up ====================================
-
-void MouseUp::MultiSelect() {
-    int x = _view->cursorxUp;
-    int y = _view->cursoryUp;
-    bool clickInside = _view->isClickInsideObj(x,y);
-    
-    if (clickInside) {
-        ECWindowObject* selectedObj = _view->_editingObj;
-        auto selectedObjIndex = _view->objectIndexInSelectedObjects(selectedObj);
-        if (selectedObjIndex == _view->_selectedObjects.end()) {
-            // Object Has Not Yet Been Selected
-            selectedObj->_color = ECGV_REF_BLUE;
-            if (auto group = dynamic_cast<ECGroupObject*>(selectedObj)) { group->setAllColor(ECGV_REF_BLUE); }
-            _view->_selectedObjects.push_back(selectedObj);
-        } else {
-            selectedObj->_color = ECGV_REF_BLACK;
-            _view->_selectedObjects.erase(selectedObjIndex);
-        }
-        _view->Clear(ECGV_REF_WHITE);
-        _view->DrawAllObjects();
-    }
-}
-
-void MouseUp::EndMultiDrag() {
-
-    // Ensure newly made objects are black
-    for(auto newObject : _view->_movingObjects) {
-        newObject->_color = ECGV_REF_BLACK;
-    }
-
-    // Add newly moved objects to window and undo stack
-    for (auto newObject : _view->_movingObjects) {
-         _view->_windowObjects.push_back(newObject);
-         _view->_undo.push_back(newObject);
-    }
-    
-    // Clear moving objects and selected objects
-    _view->_movingObjects.clear();
-    _view->_selectedObjects.clear();
-
-    _view->_multiDragEnabled = false;
-    _view->Clear(ECGV_REF_WHITE);
-    _view->DrawAllObjects();
-}
-
 void MouseUp::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_MOUSE_BUTTON_UP) { return; }
     if (_view->isQueueEmpty() == false) { return; }
+    _view->logFile << "Mouse Up" << endl;
     _view->cursorxUp = _view->getCurrentCursorX();
     _view->cursoryUp = _view->getCurrentCursorY();
     _view->_mouseDown = false;
@@ -904,74 +943,124 @@ void MouseUp::Update(ECGVEventTypeRef event) {
     // Mouse Up in Edit Mode means an object has been selected or an object is done being moved
     if (_view->_mode == ECGRAPHICVIEW_EDITMODE) {
         if (_view->_multiSelectEnabled) { MultiSelect(); return; }
-        if (_view->_multiDragEnabled) { EndMultiDrag(); return; }
-        if (_view->_arrowMovementEnabled) { return; }
-        
-        // If an object isn't currently being moved, see if the click was inside an object
-        if (_view->_isEditingObj == false) {
-            cout << "Is click inside" << endl;
-            bool clickInside = _view->isClickInsideObj(_view->cursorxUp, _view->cursoryUp);
-            
-            // If the click was inside a member of a group
-            if (clickInside && _view->_hasSelectedObjectInGroup) {
-                
-                ECGroupObject* group = _view->_selectedGroup;
-
-                // Set editingObj to group
-                _view->_editingObj = group;
-
-                // Set color of selected obj to blue and set color of group members to purple
-                _view->_selectedObjectInGroup->_color = ECGV_REF_BLUE;
-                for (auto groupMember : *(group->objectsInGroup())) {
-                    if (groupMember != _view->_selectedObjectInGroup) {
-                        groupMember->_color = ECGV_REF_PURPLE;
-                    }
-                }
-
-            }
-            // If the click was inside an object, that object is selected, and is now being edited
-            // Store the difference between the click point and the object's boundaries to maintain the shape while moving it around
-            if (clickInside) {
-                _view->_isEditingObj = true;
-                _view->_editingObj->_color = (ECGVColorRef) ECGV_BLUE;
-                
-                _view->firstClickX = _view->cursorxUp;
-                _view->firstClickY = _view->cursoryUp;
-                ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(_view->_editingObj);
-                ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(_view->_editingObj);
-                ECGroupObject* _editingGroup = dynamic_cast<ECGroupObject*>(_view->_editingObj);
-                
-                // Set distance of points from cursor
-                // When moving objects, need this
-                if (_editingRect) {
-                    _editingRect->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
-                }
-                else if (_editingEllipse) {
-                    _editingEllipse->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
-                } else if (_editingGroup) {
-                    for (auto groupObj : *(_editingGroup->objectsInGroup())) {
-                        ECRectObject* selectedRect = dynamic_cast<ECRectObject*>(groupObj);
-                        ECEllipseObject *selectedEllipse = dynamic_cast<ECEllipseObject*>(groupObj);
-                        if (selectedRect) {
-                            selectedRect->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
-                        } else if (selectedEllipse) {
-                            selectedEllipse->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
-                        } else { throw runtime_error("Group Obj is undefined"); }
-                    }
-                } else {
-                    throw runtime_error("Cast to ellipse and rect were NULL in MouseUp EDIT Mode");
-                }
-
-                _view->_objBeforeEdit = _view->_editingObj;
-            }
+        if (_view->_singleSelectEnabled) { SingleSelect(); return; }
+        //if (_view->_multiDragEnabled) { EndMultiDrag(); return; }
         // If an object is currently being moved, keep moving it around
-        } else if (_view->_isEditingObj) {
-            EditMode();
-        }
+       //} else if (_view->_isEditingObj) {
+       //     EditMode();
+       // }
 
         _view->Clear(ECGVColorRef(ECGV_WHITE));
         _view->DrawAllObjects();
     }
+}
+
+void MouseUp::SingleSelect() {
+
+    // Clicked on view : Was an object clicked?
+    if (!_view->_isEditingObj) {
+        ECWindowObject* clickedObject = _view->isClickInsideObj(_view->cursorxUp, _view->cursoryUp);
+        bool clickInside = (clickedObject != nullptr);
+        if (clickInside) {
+            if (dynamic_cast<ECGroupObject*>(clickedObject)) { _view->logFile << "Clicked Inside Group" << endl; } else { _view->logFile << "Clicked Inside Object" << endl;}
+            _view->_isEditingObj = true;
+            _view->_editingObj = clickedObject;
+            _view->_editingObj->setColor(ECGV_REF_BLUE);
+            if (_view->_hasSelectedObjectInGroup) { _view->_selectedObjectInGroup->_color = ECGV_REF_PURPLE; }
+
+            int cursorX, cursorY;
+            _view->firstClickX = cursorX;
+            _view->firstClickY = cursorY;
+
+            _view->setWindowObjDistFromCursor(_view->_editingObj,cursorX,cursorY);
+            _view->_objBeforeEdit = _view->_editingObj;
+        }
+    
+    
+    }
+    // Clicked on view : Commit edit 
+    else {
+        _view->logFile << "Single Select : Committing Edit" << endl;
+        ECWindowObject* _editedObj = _view->_editingObj;
+        _view->_objBeforeEdit->setColor(ECGV_REF_RED);
+
+        // If either the object being committed or the obj it was edited from is null throw error
+        if (!_editedObj || !_view->_objBeforeEdit) { throw runtime_error("Edited object or object before edit is null"); }
+
+        // Set edited from (for undo/redo) and color to black
+        _editedObj->_editedFrom = _view->_objBeforeEdit;
+        _editedObj->setColor(ECGV_REF_BLACK);
+        // _editedGroup->isMoving = false;
+
+        _view->_windowObjects.push_back(_editedObj);
+        _view->_undo.push_back(_editedObj);
+
+        _view->_isEditingObj = false;
+        _view->_editingObj = nullptr;
+        if (_view->_hasSelectedObjectInGroup) {
+            _view->_hasSelectedObjectInGroup = false;
+            _view->_selectedObjectInGroup = nullptr;
+            _view->_selectedGroup = nullptr;
+        }
+        _view->_objBeforeEdit = nullptr;
+    }
+    _view->Clear(ECGV_REF_WHITE);
+    _view->DrawAllObjects();
+}
+
+void MouseUp::MultiSelect() {
+
+    ECMultiSelectionObject* multipleSelectionObj = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj);
+    if (!_view->_isEditingObj) {
+        ECWindowObject* clickedObject = _view->isClickInsideObj(_view->cursorxUp, _view->cursoryUp);
+        bool clickInside = (clickedObject != nullptr);
+        // Clicked on object : Add it to the selection or remove it
+        if (clickInside) {
+        if (dynamic_cast<ECGroupObject*>(clickedObject)) { _view->logFile << "Clicked Inside Group" << endl; } else { _view->logFile << "Clicked Inside Object" << endl;}
+        int cursorX = _view->cursorxUp;
+        int cursorY = _view->cursoryUp;
+
+        // Check if object in selection, remove from selection if it is, and set back to black
+        bool objInSelection = multipleSelectionObj->objectInSelection(clickedObject, true);
+        if (objInSelection) {
+            clickedObject->setColor(ECGV_REF_BLACK);
+        // Otherwise, add it to the selection
+        } else {
+            clickedObject->setColor(ECGV_REF_BLUE);
+            multipleSelectionObj->addObjectToSelection(clickedObject);
+        }
+
+        // Same for objects before selection
+        bool objInSelectionBeforeMoved = multipleSelectionObj->objectInSelectionBeforeMoved(clickedObject, true);
+        if (objInSelectionBeforeMoved) {
+            clickedObject->setColor(ECGV_REF_BLACK);
+        } else {
+        // Otherwise, add it to to selection before moved
+            clickedObject->setColor(ECGV_REF_BLUE);
+            multipleSelectionObj->addObjectToSelectionBeforeMoved(clickedObject);
+        }
+    _view->Clear(ECGV_REF_WHITE);
+    _view->DrawAllObjects();
+    }
+    } else {
+        _view->logFile << "Multi Select: Committing Edit" << endl;
+        if (!_view->_editingObj) { throw runtime_error("Selection object is null when committing it");}
+
+        for (auto obj : multipleSelectionObj->_objectsInSelection) {
+            obj->setColor(ECGV_REF_BLACK);
+            _view->_windowObjects.push_back(obj);
+        }
+        _view->_undo.push_back(multipleSelectionObj);
+
+        _view->_isEditingObj = false;
+        _view->_editingObj = nullptr;
+        _view->_objBeforeEdit = nullptr;
+
+        _view->_multiSelectEnabled = false;
+        _view->_singleSelectEnabled = true;
+    }
+    _view->Clear(ECGV_REF_WHITE);
+    _view->DrawAllObjects();
 }
 
 // Object is done being drawn
@@ -990,56 +1079,6 @@ void MouseUp::InsertMode() {
     // Add it to undo and draw everything
     _view->_undo.push_back(lastObj);
     _view->DrawAllObjects();
-}
-
-// Object is done being edited, commit edit
-void MouseUp::EditMode() {
-    _view->_isEditingObj = false;
-
-    ECWindowObject* _editedObj = _view->_editingObj;
-    _view->_objBeforeEdit->_color = (ECGVColorRef) ECGV_RED; //just in case it shows up when it shouldn't
-
-    // If either the object being committed or the obj it was edited from is null throw error
-    if (_editedObj == NULL) { throw runtime_error("Obj was edited, but it is NULL"); }
-    if (_view->_objBeforeEdit == NULL) { throw runtime_error("Obj edited from is NULL"); }
-    
-    // Set edited from (for undo/redo) and color to black
-    _editedObj->_editedFrom = _view->_objBeforeEdit;
-    _editedObj->_color = ECGV_REF_BLACK;
-
-    // If object that was moved is a group that was selected
-    if (_view->_hasSelectedObjectInGroup) {
-        cout << "Committing Group" << endl;
-        // Group objects should be black now
-        ECGroupObject* editedGroup = dynamic_cast<ECGroupObject*>(_editedObj);
-        editedGroup->setAllColor(ECGV_REF_BLACK);
-
-        // Group is not moving anymore (for colors)
-        editedGroup->_isMoving = false;
-        
-        // Not editing a group anymore
-        _view->_hasSelectedObjectInGroup = false;
-        _view->_selectedGroup = nullptr;
-        _view->_selectedObjectInGroup = nullptr;
-    }
-
-    // If object that was moved is a group but wasn't selected (multi select then edit)
-    ECGroupObject* group = dynamic_cast<ECGroupObject*>(_editedObj);
-    if (group && group->_isTemp) {
-        auto i = _view->objectIndexInWindow(group);
-        if (i == _view->_windowObjects.end()) { throw runtime_error("Temp group not in window"); }
-        _view->_windowObjects.erase(i);
-
-        for (auto obj : group->_collectionObjects) {
-            _view->_windowObjects.push_back(obj);
-            _view->_undo.push_back(obj);
-        }
-
-        return;
-    }
-    // Add new object to window and add to undo stack
-    _view->_windowObjects.push_back(_editedObj);
-    _view->_undo.push_back(_editedObj);
 }
 
 // ============================================================================
@@ -1086,6 +1125,8 @@ void ECObserverSubject::setAppDefaults() {
     _view->_multiSelectEnabled = false;
     _view->_multiDragEnabled = false;
 
+    _view->_singleSelectEnabled = true;
+
     // Set Arrow Key Movement Disabled
     _view->_arrowMovementEnabled = false;
 
@@ -1107,7 +1148,9 @@ bool ECObserverSubject::isQueueEmpty() { return _view->isEventQueueEmpty(); }
 // Check if object is in window currently, and if it exists
 std::__1::__wrap_iter<ECWindowObject **> ECObserverSubject::objectIndexInWindow(ECWindowObject* obj) {
     auto i = _windowObjects.begin();
+    cout << "obj index in window" << endl;
     for (ECWindowObject* o : _windowObjects) {
+        cout << "o in window: " << o << endl;
         if (o == obj) {
             return i;
         }
@@ -1225,6 +1268,28 @@ void ECObserverSubject::DrawGroup(ECGroupObject* group) {
         }
     }
 }
+
+void ECObserverSubject::DrawSelection(ECMultiSelectionObject* selection) {
+    auto selectionObjs = selection->_objectsInSelection;
+    for (auto obj : selectionObjs) {
+        DrawObject(obj);
+    }
+}
+
+void ECObserverSubject::DrawObject(ECWindowObject* obj) {
+    if (auto rect = dynamic_cast<ECRectObject*>(obj)) {
+        DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, rect->_color, rect->isFilled());
+    }
+    else if (auto ellipse = dynamic_cast<ECEllipseObject*>(obj)) {
+        DrawEllipse(ellipse->_xCenter, ellipse->_yCenter, ellipse->_xRadius, ellipse->_yRadius, ellipse->_thickness, ellipse->_color, ellipse->isFilled());
+    }
+    else if (auto group = dynamic_cast<ECGroupObject*>(obj)) {
+        DrawGroup(group);
+    } else if (auto selection = dynamic_cast<ECMultiSelectionObject*>(obj)) {
+        cout << "drawing selection" << endl;
+        DrawSelection(selection);
+    }
+}
 // Draw the Shape Label
 void ECObserverSubject::DrawShapeLabel() {
     _view->DrawText(_view->GetWidth()-28, 5, 20, arrayAllegroColors[ECGV_BLACK], ALLEGRO_ALIGN_REF_RIGHT, _shapeStr);
@@ -1277,7 +1342,7 @@ ECRectObject* ECObserverSubject::getMovingRect(ECRectObject* originalRect, int c
     int y1 = cursorY - y1D;
     int y2 = cursorY - y2D;
 
-    ECRectObject* movingRect = new ECRectObject(x1,y1,x2,y2,1,originalRect->_color,false);
+    ECRectObject* movingRect = new ECRectObject(x1,y1,x2,y2,1,originalRect->_color,originalRect->isFilled());
     movingRect->_editedFrom = originalRect;
     movingRect->setDistFromCursor(x1D,y1D,x2D,y2D);
     return movingRect;
@@ -1291,7 +1356,7 @@ ECEllipseObject* ECObserverSubject::getMovingEllipse(ECEllipseObject* originalEl
     int xR = originalEllipse->_xRadius;
     int yR = originalEllipse->_yRadius;
 
-    ECEllipseObject* movingEllipse = new ECEllipseObject(xC, yC, xR, yR, 1, originalEllipse->_color, false);
+    ECEllipseObject* movingEllipse = new ECEllipseObject(xC, yC, xR, yR, 1, originalEllipse->_color, originalEllipse->isFilled());
     movingEllipse->_editedFrom = originalEllipse;
     movingEllipse->setDistFromCursor(xcD, ycD, 0);
     return movingEllipse;
@@ -1302,9 +1367,8 @@ ECGroupObject* ECObserverSubject::getMovingGroup(ECGroupObject* originalGroup, i
 
     ECGroupObject* movingGroup = new ECGroupObject();
     for (auto groupObj : *groupObjects) {
-        if (groupObj == _view->_selectedObjectInGroup) {
-            cout << "SELECTED OBJECT IN GROUP" << endl;
-            if (groupObj->_color == ECGV_REF_BLUE) { cout << "IS BLUE" << endl;}
+        if (groupObj == primaryObject) {
+            if (groupObj->_color == ECGV_REF_PURPLE) { cout << "IS PURPLE" << endl;}
         }
         ECRectObject* rectObj = dynamic_cast<ECRectObject*>(groupObj);
         ECEllipseObject* ellipseObj = dynamic_cast<ECEllipseObject*>(groupObj);
@@ -1335,7 +1399,7 @@ ECGroupObject* ECObserverSubject::getMovingGroup(ECGroupObject* originalGroup, i
 }
 
 // === Editing Functions ===
-bool ECObserverSubject::isPointInsideRect(ECRectObject* _rect, float xp, float yp) {
+ECRectObject* ECObserverSubject::isPointInsideRect(ECRectObject* _rect, float xp, float yp) {
 
     float maxX = max(_rect->_x1, _rect->_x2);
     float maxY = max(_rect->_y1, _rect->_y2);
@@ -1344,12 +1408,12 @@ bool ECObserverSubject::isPointInsideRect(ECRectObject* _rect, float xp, float y
     float minY = min(_rect->_y1, _rect->_y2);
 
     if (xp >= minX && xp <= maxX && yp >= minY && yp <= maxY) {
-        return true;
+        return _rect;
     }
-    return false;
+    return nullptr;
 }
 
-bool ECObserverSubject::isPointInsideEllipse(ECEllipseObject* _ellipse, float xp, float yp) {
+ECEllipseObject* ECObserverSubject::isPointInsideEllipse(ECEllipseObject* _ellipse, float xp, float yp) {
     
     // [ (x-h)^2 / r_x^2 ] + [ (y-k)^2 / r_y^2 ] less than equal to 1 if pt inside ellipse
     float h = _ellipse->_xCenter;
@@ -1366,35 +1430,18 @@ bool ECObserverSubject::isPointInsideEllipse(ECEllipseObject* _ellipse, float xp
 
     float result = term1 + term2;
 
-    if (result <= 1) { return true; }
-    return false;
+    if (result <= 1) { return _ellipse; }
+    return nullptr;
 }
 
 // Determine if a click is inside an object, and if it is, set that object to the one now being edited
-bool ECObserverSubject::isClickInsideObj(float xp, float yp) {
+ECWindowObject* ECObserverSubject::isClickInsideObj(float xp, float yp) {
     
-    bool clickInside = false;
     for (auto obj : _windowObjects) {
         
         ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
         ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(obj);
         ECGroupObject* group = dynamic_cast<ECGroupObject*>(obj);
-
-        if (rect) {
-            if (isPointInsideRect(rect, cursorxDown, cursoryDown)) {
-                _editingObj = rect;
-                clickInside = true;
-                break;
-            }
-        }
-
-        if (ellipse) {
-            if (isPointInsideEllipse(ellipse, cursorxDown, cursoryDown)) {
-                _editingObj = ellipse;
-                clickInside = true;
-                break;
-            }
-        }
 
         if (group) {
             for (auto groupObj : *(group->objectsInGroup())) {
@@ -1407,8 +1454,8 @@ bool ECObserverSubject::isClickInsideObj(float xp, float yp) {
                         _view->_selectedGroup = group;
                         _view->_selectedObjectInGroup = rect;
 
-                        _editingObj = group;
-                        clickInside = true;
+                        //_editingObj = group;
+                        return group;
                         break;
                     }
                 }
@@ -1418,16 +1465,32 @@ bool ECObserverSubject::isClickInsideObj(float xp, float yp) {
                         _view->_selectedGroup = group;
                         _view->_selectedObjectInGroup = ellipse;
 
-                        _editingObj = group;
-                        clickInside = true;
+                        //_editingObj = group;
+                        return group;
                         break;
                     }
                 }
             }
         }
+
+        if (rect) {
+            if (isPointInsideRect(rect, cursorxDown, cursoryDown)) {
+                //_editingObj = rect;
+                return rect;
+                break;
+            }
+        }
+
+        if (ellipse) {
+            if (isPointInsideEllipse(ellipse, cursorxDown, cursoryDown)) {
+                //_editingObj = ellipse;
+                return ellipse;
+                break;
+            }
+        }
     }
 
-    return clickInside;
+    return nullptr;
 
 }
 
@@ -1445,6 +1508,37 @@ void ECObserverSubject::setGroupDistFromCursor(ECGroupObject* group, int cursorX
     }
 }
 
+void ECObserverSubject::setSelectionDistFromCursor(ECMultiSelectionObject* selection, int cursorX, int cursorY) {
+    for (auto obj : selection->_objectsInSelection) {
+        ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
+        ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(obj);
+        ECGroupObject* group = dynamic_cast<ECGroupObject*>(obj);
+
+        if (rect) { rect->setDistFromCursor(cursorX, cursorY); }
+        else if (ellipse) { ellipse->setDistFromCursor(cursorX, cursorY); }
+        else if (group) { setGroupDistFromCursor(group,cursorX,cursorY); }
+        else { throw std::runtime_error("GROUP SET DIST : Group obj is not valid shape");}
+    }
+}
+void ECObserverSubject::setWindowObjDistFromCursor(ECWindowObject* obj, int cursosrX, int cursorY) {
+    
+    ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(obj);
+    ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(obj);
+    ECGroupObject* _editingGroup = dynamic_cast<ECGroupObject*>(obj);
+
+    // Set distance of points from cursor
+    // When moving objects, need this
+    if (_editingRect) {
+        _editingRect->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
+    }
+    else if (_editingEllipse) {
+        _editingEllipse->setDistFromCursor(_view->cursorxUp, _view->cursoryUp);
+    } else if (_editingGroup) {
+        _view->setGroupDistFromCursor(_editingGroup, _view->cursorxUp, _view->cursoryUp);
+    } else {
+        throw runtime_error("Cast to ellipse and rect were NULL in MouseUp EDIT Mode");
+    }
+}
 // === Observer Functions ===
 void ECObserverSubject::Notify()
 {
@@ -1483,4 +1577,6 @@ void ECObserverSubject::attachObservers() {
     _view->Attach(ctrlKeyUpObserver);
     _view->Attach(arrowKeysUpObserver);
     _view->Attach(escapeKeyUpObserver);
+
+    CreateLog();
 }
