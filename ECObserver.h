@@ -164,10 +164,6 @@ class ZKeyUp : public ECObserver {
         }
         ~ZKeyUp() {}
         void Update(ECGVEventTypeRef event);
-        void UndoDeletion(ECDeletedObject* dead);
-        void UndoSelection(ECMultiSelectionObject* selection);
-        void UndoGrouping(ECGroupObject* group, ECMultiSelectionObject* from);
-        void UndoUngroup(ECWindowObject* objCreatedFromUngrouping);
 };
 
 class YKeyUp : public ECObserver {
@@ -177,10 +173,6 @@ class YKeyUp : public ECObserver {
     }
     ~YKeyUp() {}
     void Update(ECGVEventTypeRef event);
-    void RedoDeletion(ECDeletedObject* dead);
-    void RedoSelection(ECMultiSelectionObject* selection);
-    void RedoGrouping(ECGroupObject* group, ECMultiSelectionObject* from);
-    void RedoUngroup(ECWindowObject* objCreatedFromUngrouping);
 };
 
 class FKeyUp : public ECObserver {
@@ -253,11 +245,11 @@ public:
     // Log
     ofstream logFile;
     void CreateLog() {
-        srand(time(NULL));
-        int randomNumber = rand() % 100;
-        std::string logFilename = "log" + std::to_string(randomNumber);
-        cout << "Log File: "  << logFilename << endl;
-        logFile = ofstream(logFilename);
+        //srand(time(NULL));
+        //int randomNumber = rand() % 100;
+        //std::string logFilename = "log" + std::to_string(randomNumber);
+        //cout << "Log File: "  << logFilename << endl;
+        //logFile = ofstream(logFilename);
     }
 
     // Savefile
@@ -275,8 +267,6 @@ public:
     std::string _modeStr;
     std::string _shapeStr;
     std::string _lastShapeStr; // for when switching back to insert from edit
-    vector<ECWindowObject*> _undo;
-    vector<ECWindowObject*> _redo;
     std::string _warning;
     std::vector<ECWindowObject*> _windowObjects;
 
@@ -303,6 +293,10 @@ public:
     // Undo / Redo
     vector<vector<ECWindowObject*>*> _undo;
     vector<vector<ECWindowObject*>*> _redo;
+    vector<ECWindowObject*>* _startDisplay;
+    bool _firstUndo = true;
+
+    void pushToUndo();
 
     // Grouping
     bool _hasSelectedObjectInGroup;
@@ -331,8 +325,6 @@ public:
     bool isQueueEmpty();
     std::__1::__wrap_iter<ECWindowObject **> objectIndexInWindow(ECWindowObject* obj);
     std::__1::__wrap_iter<ECWindowObject **> objectIndexInSelectedObjects(ECWindowObject* obj);
-    std::__1::__wrap_iter<ECWindowObject **> objectIndexInUndoStack(ECWindowObject* obj);
-    std::__1::__wrap_iter<ECWindowObject **> objectIndexInRedoStack(ECWindowObject* obj);
 
     // Draw Functions
     void DrawAllObjects();

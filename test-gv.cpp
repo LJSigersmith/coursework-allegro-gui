@@ -16,11 +16,11 @@ int real_main(int argc, char **argv)
 
   view->InitObserver();
 
-  if (argc > 1) { view->LoadSaveFile(argv[1]); }
+  //if (argc > 1) { view->LoadSaveFile(argv[1]); }
   
   gv.Show();
 
-  if (argc > 1) { view->WriteToSaveFile(); }
+  //if (argc > 1) { view->WriteToSaveFile(); }
 
   return 0;
 }

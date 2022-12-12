@@ -22,23 +22,16 @@ class ECWindowObject {
     public :
         virtual ~ECWindowObject() {};
 
-        // If object was created by being edited,
-        // store what object was edited
-        ECWindowObject* _editedFrom = nullptr;
+        // If object is in a group, store what group it is in
         ECWindowObject* _inGroup = nullptr;
         
         ECGVColorRef _color;
         bool _fill;
 
-        int id;
-
         void setFilled(bool filled) { _fill = filled; }
         bool isFilled() { return _fill; }
-        virtual void setColor(ECGVColorRef color) = 0;
 
-        bool _createdFromUngrouping = false;
-        ECWindowObject* _fromGroup = nullptr;
-        std::vector<ECWindowObject*>* _associatedFromGroupObjects;
+        virtual void setColor(ECGVColorRef color) = 0;
 };
 
 using namespace std;
@@ -89,20 +82,6 @@ class ECMultiSelectionObject : public ECWindowObject {
         }
 };
 
-// Empty Object, just represents an object that was deleted
-class ECDeletedObject : public ECWindowObject {
-    public :
-        // Set alive object to actual object
-        ECDeletedObject(ECWindowObject* alive) {
-            _alive = alive;
-        }
-        ~ECDeletedObject() {}
-
-
-        void setColor(ECGVColorRef color) { std::cout << "don't do this" << std::endl; }
-        ECWindowObject* _alive;
-};
-
 class ECRectObject : public ECWindowObject {
 
 public :
@@ -115,7 +94,6 @@ public :
         _y2 = y2;
         _thickness = thickness;
         _color = color;
-        _editedFrom = NULL;
         _fill = filled;
     }
 
@@ -126,7 +104,6 @@ public :
         _y2 = rect->_y2;
         _thickness = rect->_thickness;
         _color = rect->_color;
-        _editedFrom = rect->_editedFrom;
         _fill = rect->_fill;
     }
 
@@ -181,7 +158,6 @@ class ECEllipseObject : public ECWindowObject {
             _yRadius = yr;
             _thickness = thickness;
             _color = color;
-            _editedFrom = NULL;
             _fill = filled;
         }
 
@@ -192,7 +168,6 @@ class ECEllipseObject : public ECWindowObject {
             _yRadius = ellipse->_yRadius;
             _thickness = ellipse->_thickness;
             _color = ellipse->_color;
-            _editedFrom = ellipse->_editedFrom;
             _fill = ellipse->_fill;
         }
 
