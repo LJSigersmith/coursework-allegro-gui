@@ -17,15 +17,12 @@ void EscapeKeyUp::Update(ECGVEventTypeRef event) {
     if (!_view->_arrowMovementEnabled) { return; }
     _view->_arrowMovementEnabled = false;
     
-    if (_view->_editingObj) {
-        _view->_editingObj->_color = ECGV_REF_BLACK;
-    }
     _view->_isEditingObj = false;
     _view->_warning = "";
 
-    _view->_selectedObjects.clear();
-    _view->_multiDragEnabled = false;
+    _view->_editingObj = nullptr;
     _view->_multiSelectEnabled = false;
+    _view->_singleSelectEnabled = true;
 
     for (auto obj : _view->_windowObjects) {
         obj->_color = ECGV_REF_BLACK;
@@ -38,7 +35,7 @@ void EscapeKeyUp::Update(ECGVEventTypeRef event) {
 // =========================== Arrow Keys (UP) ================================
 void ArrowKeyUp::Update(ECGVEventTypeRef event) {
     if (_view->_mode != ECGRAPHICVIEW_EDITMODE) { return; }
-    if (_view->_multiSelectEnabled) { return; }
+    if (_view->_isEditingObj == false && _view->_singleSelectEnabled) { return; }
     switch (event)
     {
     case ECGV_REF_EV_KEY_UP_LEFT :
@@ -63,50 +60,43 @@ void ArrowKeyUp::Update(ECGVEventTypeRef event) {
     }
 
     _view->Clear(ECGV_REF_WHITE);
-    if (_view->_multiDragEnabled) {
-        // Move Collection
+
+    ECWindowObject* editingObject = dynamic_cast<ECWindowObject*>(_view->_editingObj);
+    ECMultiSelectionObject *selection = dynamic_cast<ECMultiSelectionObject*>(_view->_editingObj);
+    if (selection) {
+
+        // Selection of objects being moved
         _view->_arrowMovementEnabled = true;
+        _view->_multiSelectEnabled = false;
+        _view->_singleSelectEnabled = false;
+
         _view->_warning = "Key Editing ON";
-
-        vector<ECWindowObject*> objectsToRemoveFromSelectedObjects(_view->_selectedObjects.begin(), _view->_selectedObjects.end());
-
-        for (auto objToMove : _view->_selectedObjects) {
-            ECWindowObject* movedObject = getMovedObject(objToMove);
-
-            _view->_windowObjects.push_back(movedObject);
-            _view->_selectedObjects.push_back(movedObject);
-
-            _view->pushToUndo();
-            //_view->_undo.push_back(movedObject);
+        ECMultiSelectionObject* movedObject = dynamic_cast<ECMultiSelectionObject*>(getMovedObject(movedObject));
+        for (auto obj : movedObject->_objectsInSelection) {
+            _view->_windowObjects.push_back(obj);
         }
-
-        // Remove Old Selected Objects from Selected Objects
-        for (auto objToRemove : objectsToRemoveFromSelectedObjects) {
-            auto selectedObjIndexInSelectedObjects = _view->objectIndexInSelectedObjects(objToRemove);
-            if (selectedObjIndexInSelectedObjects != _view->_selectedObjects.end()) {
-                _view->_selectedObjects.erase(selectedObjIndexInSelectedObjects);
-            }
-        }
-
-        _view->DrawAllObjects();
-
-    } else if (_view->_isEditingObj) {
-        _view->_arrowMovementEnabled = true;
-        _view->_warning = "Key Editing ON";
-
-        ECWindowObject* objToMove = _view->_editingObj;
-
-        ECWindowObject* movedObject = getMovedObject(objToMove);
-
-        _view->_windowObjects.push_back(movedObject);
-        //_view->_undo.push_back(movedObject);
         _view->_editingObj = movedObject;
+        _view->pushToUndo();
         _view->DrawAllObjects();
-    }
+
+    } else if (editingObject) {
+
+        // Single object being moved
+        _view->_arrowMovementEnabled = true;
+        _view->_multiSelectEnabled = false;
+        _view->_singleSelectEnabled = false;
+
+        _view->_warning = "Key Editing ON";
+        ECWindowObject* movedObject = getMovedObject(editingObject);
+        _view->_windowObjects.push_back(movedObject);
+        _view->_editingObj = movedObject;
+        _view->pushToUndo();
+        _view->DrawAllObjects();
+
+    } else { throw runtime_error("editingObject is not a valid object for some reason"); }
 }
 
 ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
-    ECWindowObject* movedObject;
 
     // Remove Being Moved Object from window
     auto removeObject = _view->objectIndexInWindow(objToMove);
@@ -114,11 +104,8 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         _view->_windowObjects.erase(removeObject);
     }
 
-    // Move Object
-    ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(objToMove);
-    ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(objToMove);
-
-    if (_editingRect) {
+    // Lambdas For Each Obj Type
+    auto movingRect = [&] (ECRectObject* _editingRect) {
         int x1 = _editingRect->_x1 + xMovement;
         int y1 = _editingRect->_y1 + yMovement;
 
@@ -128,8 +115,9 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         ECRectObject* movedRect = new ECRectObject(x1, y1, x2, y2, 1, ECGV_REF_BLUE, false);
 
         _view->DrawRectangle(x1, y1, x2, y2, 1, ECGV_REF_BLUE, false);
-        movedObject = movedRect;
-    } else if (_editingEllipse) {
+        return movedRect;
+    };
+    auto movingEllipse = [&] (ECEllipseObject* _editingEllipse) {
         int xC = _editingEllipse->_xCenter + xMovement;
         int yC = _editingEllipse->_yCenter + yMovement;
         int xR = _editingEllipse->_xRadius;
@@ -138,8 +126,29 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         ECEllipseObject* movedEllipse = new ECEllipseObject(xC,yC,xR,yR,1,ECGV_REF_BLUE,false);
 
         _view->DrawEllipse(xC,yC,xR,yR,1,ECGV_REF_BLUE,false);
-        movedObject = movedEllipse;
-    } else { throw runtime_error("Cast Failed: ARROW KEY"); }
+        return movedEllipse;
+    };
+    auto movingGroup = [&] (ECGroupObject* _editingGroup) {
+        ECGroupObject* movedGroup = new ECGroupObject();
+        for (auto memberObj : _editingGroup->_collectionObjects) {
+            ECRectObject* rectMember = dynamic_cast<ECRectObject*>(memberObj);
+            ECEllipseObject* ellipseMember = dynamic_cast<ECEllipseObject*>(memberObj);
+            
+            if (rectMember) { movedGroup->_collectionObjects.push_back(movingRect(rectMember));}
+            else if (ellipseMember) { movedGroup->_collectionObjects.push_back(movingEllipse(ellipseMember));}
+        }
+        return movedGroup;
+    };
+    // Move Object
+    ECWindowObject* movedObject;
+    ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(objToMove);
+    ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(objToMove);
+    ECGroupObject* _editingGroup = dynamic_cast<ECGroupObject*>(objToMove);
+    
+    if (_editingRect) { movedObject = movingRect(_editingRect); }
+    else if (_editingEllipse) { movedObject = movingEllipse(_editingEllipse); }
+    else if (_editingGroup) { movedObject = movingGroup(_editingGroup); }
+    else { throw runtime_error("Invalid object type in objToMove Arrow Key"); }
 
     return movedObject;
 }
