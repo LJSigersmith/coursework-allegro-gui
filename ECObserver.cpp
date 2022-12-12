@@ -71,7 +71,7 @@ void ArrowKeyUp::Update(ECGVEventTypeRef event) {
         _view->_singleSelectEnabled = false;
 
         _view->_warning = "Key Editing ON";
-        ECMultiSelectionObject* movedObject = dynamic_cast<ECMultiSelectionObject*>(getMovedObject(movedObject));
+        ECMultiSelectionObject* movedObject = dynamic_cast<ECMultiSelectionObject*>(getMovedObject(editingObject));
         for (auto obj : movedObject->_objectsInSelection) {
             _view->_windowObjects.push_back(obj);
         }
@@ -97,12 +97,6 @@ void ArrowKeyUp::Update(ECGVEventTypeRef event) {
 }
 
 ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
-
-    // Remove Being Moved Object from window
-    auto removeObject = _view->objectIndexInWindow(objToMove);
-    if (removeObject != _view->_windowObjects.end()) {
-        _view->_windowObjects.erase(removeObject);
-    }
 
     // Lambdas For Each Obj Type
     auto movingRect = [&] (ECRectObject* _editingRect) {
@@ -139,15 +133,48 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         }
         return movedGroup;
     };
+    auto movingSelection = [&] (ECMultiSelectionObject* _editingSelection) {
+        ECMultiSelectionObject* movedGroup = new ECMultiSelectionObject();
+        for (auto memberObj : _editingSelection->_objectsInSelection) {
+            ECRectObject* rectMember = dynamic_cast<ECRectObject*>(memberObj);
+            ECEllipseObject* ellipseMember = dynamic_cast<ECEllipseObject*>(memberObj);
+            ECGroupObject* groupMember = dynamic_cast<ECGroupObject*>(memberObj);
+            
+            if (rectMember) { movedGroup->_objectsInSelection.push_back(movingRect(rectMember));}
+            else if (ellipseMember) { movedGroup->_objectsInSelection.push_back(movingEllipse(ellipseMember));}
+            else if (groupMember) { movedGroup->_objectsInSelection.push_back(movingGroup(groupMember));}
+        }
+        return movedGroup;
+    };
+    
     // Move Object
     ECWindowObject* movedObject;
     ECRectObject* _editingRect = dynamic_cast<ECRectObject*>(objToMove);
     ECEllipseObject* _editingEllipse = dynamic_cast<ECEllipseObject*>(objToMove);
     ECGroupObject* _editingGroup = dynamic_cast<ECGroupObject*>(objToMove);
-    
+    ECMultiSelectionObject* _editingSelection = dynamic_cast<ECMultiSelectionObject*>(objToMove);
+
+    if (!_editingSelection) {
+        // Remove Being Moved Object from window
+        auto removeObject = _view->objectIndexInWindow(objToMove);
+        if (removeObject != _view->_windowObjects.end()) {
+            _view->_windowObjects.erase(removeObject);
+        }
+    } else {
+
+    for (auto selObj : _editingSelection->_objectsInSelection) {
+         // Remove Being Moved Object from window
+        auto removeObject = _view->objectIndexInWindow(selObj);
+        if (removeObject != _view->_windowObjects.end()) {
+            _view->_windowObjects.erase(removeObject);
+        }
+    }
+    }
+
     if (_editingRect) { movedObject = movingRect(_editingRect); }
     else if (_editingEllipse) { movedObject = movingEllipse(_editingEllipse); }
     else if (_editingGroup) { movedObject = movingGroup(_editingGroup); }
+    else if (_editingSelection) { movedObject = movingSelection(_editingSelection); }
     else { throw runtime_error("Invalid object type in objToMove Arrow Key"); }
 
     return movedObject;
@@ -158,7 +185,6 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
 void CtrlKeyDown::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_KEY_DOWN_CTRL) { return; }
     if (_view->_mode != ECGRAPHICVIEW_EDITMODE) { return; }
-    //if (_view->_multiDragEnabled) { return; }
     if (_view->_windowObjects.size() == 0) { return; }
 
     _view->_multiSelectEnabled = true;
@@ -294,17 +320,41 @@ void GKeyUp::GroupObjects() {
     // Make New Group, set each object in group to be a member of group, and add obj to group
     // Create new instance of each object when adding to group
     ECGroupObject* newGroup = new ECGroupObject();
+
+    auto newRect = [&](ECRectObject* rect) { return new ECRectObject(rect); };
+    auto newEllipse = [&](ECEllipseObject* ellipse) { return new ECEllipseObject(ellipse); };
+    auto newGroupWithGroup = [&](ECGroupObject* group) {
+        ECGroupObject* newGroup = new ECGroupObject();
+        for (auto obj : group->_collectionObjects) {
+            auto rect = dynamic_cast<ECRectObject*>(obj);
+            auto ellipse = dynamic_cast<ECEllipseObject*>(obj);
+            if (rect) { newGroup->_collectionObjects.push_back(newRect(rect)); }
+            else if (ellipse) { newGroup->_collectionObjects.push_back(newEllipse(ellipse)); }
+            else { throw runtime_error("Group object invalid"); }
+        }
+        return newGroup;
+
+    };
     for (auto obj : selection->_objectsInSelection) {
         ECWindowObject* groupObj;
         if (auto rect = dynamic_cast<ECRectObject*>(obj)) { groupObj = new ECRectObject(rect); }
         else if (auto ellipse = dynamic_cast<ECEllipseObject*>(obj)) { groupObj = new ECEllipseObject(ellipse); }
-        else if (auto group = dynamic_cast<ECGroupObject*>(obj)) { groupObj = new ECGroupObject(group); }
+        else if (auto group = dynamic_cast<ECGroupObject*>(obj)) {
+            ECGroupObject* groupWithinGroup = newGroupWithGroup(group);
+            for (auto o : groupWithinGroup->_collectionObjects) {
+                newGroup->addObject(o);
+                o->setColor(ECGV_REF_BLACK);
+                o->_inGroup = newGroup;
+            }
+        }
         else { throw runtime_error("Creating new group : selected obj is not rect or ellipse"); }
         
-        groupObj->_inGroup = newGroup;
-        groupObj->setColor(ECGV_REF_BLACK);
-        newGroup->addObject(groupObj);
-        newGroup->addObjectFromBeforeGrouping(obj);
+        if (!dynamic_cast<ECGroupObject*>(obj)) {
+            groupObj->_inGroup = newGroup;
+            groupObj->setColor(ECGV_REF_BLACK);
+            newGroup->addObject(groupObj);
+            newGroup->addObjectFromBeforeGrouping(obj);
+        }
     }
 
     // Add Group to Window
