@@ -3,6 +3,7 @@
 //
 #include "ECGraphicViewImp.h"
 #include "ECObserver.h"
+#include <iostream>
 
 // Test graphical view code
 int real_main(int argc, char **argv)
@@ -12,9 +13,14 @@ int real_main(int argc, char **argv)
 
   ECObserverSubject* view = &gv;
   view->_view = &gv;
-  
+
   view->InitObserver();
+
+  if (argc > 1) { view->LoadSaveFile(argv[1]); }
+  
   gv.Show();
+
+  if (argc > 1) { view->WriteToSaveFile(); }
 
   return 0;
 }

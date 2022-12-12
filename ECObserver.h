@@ -14,6 +14,7 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <string>
 
 #include "ECWindowObject.h"
 
@@ -259,6 +260,14 @@ public:
         logFile = ofstream(logFilename);
     }
 
+    // Savefile
+    ofstream saveFile;
+    void LoadSaveFile(char* filename);
+    void WriteToSaveFile();
+    void WriteRect(ECRectObject* rect);
+    void WriteEllipse(ECEllipseObject* ellipse);
+    void WriteGroup(ECGroupObject* group);
+
     // High Level View Settings
     ECGraphicViewImp* _view;
     ECGRAPHICVIEW_MODE _mode;
@@ -290,6 +299,10 @@ public:
     bool _multiDragEnabled;
     vector<ECWindowObject*> _selectedObjects;
     vector<ECWindowObject*> _movingObjects;
+
+    // Undo / Redo
+    vector<vector<ECWindowObject*>*> _undo;
+    vector<vector<ECWindowObject*>*> _redo;
 
     // Grouping
     bool _hasSelectedObjectInGroup;
@@ -357,9 +370,7 @@ public:
     // Observer Functions
     void Attach( ECObserver *pObs )
     {
-        std::cout << "Adding an observer.\n";
         listObservers.push_back(pObs);
-        cout << "New observer size: " << listObservers.size() << endl;
     }
     void Detach( ECObserver *pObs )
     {

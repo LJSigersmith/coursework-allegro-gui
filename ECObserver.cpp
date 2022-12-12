@@ -1580,3 +1580,69 @@ void ECObserverSubject::attachObservers() {
 
     CreateLog();
 }
+
+void ECObserverSubject::LoadSaveFile(char* filename) {
+        ifstream f(filename);
+        cout << "Loading Save File" << endl;
+        if (!f.good()) { saveFile = ofstream(filename); }
+        else {
+            cout << "File exists" << endl;
+            std::string line;
+            // Load objects from file and draw
+            while (std::getline(f, line)) {
+                std::istringstream is(line);
+
+            }
+    }
+}
+
+void ECObserverSubject::WriteToSaveFile() {
+    saveFile << _windowObjects.size() << endl;
+    for (auto obj : _windowObjects) {
+        ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
+        ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(obj);
+        ECGroupObject* group = dynamic_cast<ECGroupObject*>(obj);
+
+        if (rect) { WriteRect(rect);
+        } else if (ellipse) { WriteEllipse(ellipse);
+        } else if (group) { WriteGroup(group); }
+    }
+}
+
+void ECObserverSubject::WriteRect(ECRectObject* rect) {
+    if (rect->isFilled()) {
+                saveFile << 2 << " ";
+            } else {
+                saveFile << 0 << " ";
+            }
+            saveFile << 4 << " ";
+            saveFile << rect->_x1 << " " << rect->_y1 << " " << rect->_x2 << " " << rect->_y2 << " ";
+            saveFile << rect->_color << endl;
+}
+void ECObserverSubject::WriteEllipse(ECEllipseObject* ellipse) {
+    if (ellipse->isFilled()) {
+                saveFile << 3 << " ";
+            } else {
+                saveFile << 1 << " ";
+            }
+            saveFile << 4 << " ";
+            saveFile << ellipse->_xCenter << " " << ellipse->_yCenter << " " << ellipse->_xRadius << " " << ellipse->_yRadius << " ";
+            saveFile << ellipse->_color << endl;
+}
+
+void ECObserverSubject::WriteGroup(ECGroupObject* group) {
+    saveFile << 4 << " " << group->_collectionObjects.size() << endl;
+    for (auto obj : group->_collectionObjects) {
+        ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
+        ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(obj);
+        ECGroupObject* group = dynamic_cast<ECGroupObject*>(obj);
+
+        if (rect) {
+            WriteRect(rect);
+        } else if (ellipse) {
+            WriteEllipse(ellipse);
+        } else if (group) {
+            WriteGroup(group);
+        }
+    }
+}
