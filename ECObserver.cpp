@@ -390,6 +390,7 @@ void GKeyUp::UnGroupObject() {
     if (i != _view->_windowObjects.end()) {
         cout << "erasing gorup" << endl;
         _view->_windowObjects.erase(i);
+        cout << "erased" << endl;
     }
 
     ECWindowObject* primaryObject = _view->_selectedObjectInGroup;
@@ -417,6 +418,7 @@ void GKeyUp::UnGroupObject() {
     }
 
 
+
     // Set color to black
     newObject->setColor(ECGV_REF_BLACK);
     newGroup->setColor(ECGV_REF_BLACK);
@@ -427,15 +429,10 @@ void GKeyUp::UnGroupObject() {
     // If the new group has only one object
     if (newGroup->_collectionObjects.size() == 1) {
         ECWindowObject* objFromGroup = newGroup->_collectionObjects[0];
-        //_view->_undo.push_back(objFromGroup);
-        //_view->_undo.push_back(newObject);
 
         _view->_windowObjects.push_back(objFromGroup);
         _view->_windowObjects.push_back(newObject);
     } else {
-        //_view->_undo.push_back(newGroup);
-        //_view->_undo.push_back(newObject);
-
         _view->_windowObjects.push_back(newGroup);
         _view->_windowObjects.push_back(newObject);
     }
@@ -1418,12 +1415,69 @@ void ECObserverSubject::LoadSaveFile(char* filename) {
         if (!f.good()) { saveFile = ofstream(filename); }
         else {
            cout << "File exists" << endl;
-           std::string line;
            // Load objects from file and draw
-           //while (std::getline(f, line)) {
-               //std::istringstream is(line);
+           std::string line;
+           std::vector<std::vector<int>> mat;
+           while (std::getline(f, line)) {
+            cout << line << "\n";
 
-           //}
+            std::istringstream iss(line);
+            int x;
+            std::vector<int> row;
+            while (iss >> x) {
+                //cout << x << '\t';
+                row.push_back(x);
+            }
+            mat.push_back(row);
+           }
+           //cout << '\n';
+
+           // Check the output content
+           bool lineOne = false;
+           bool group = false;
+           int groupObj = 0;
+           int groupNum = 0;
+           ECGroupObject* readingGroup;
+
+            for(auto &row : mat) {
+                if (lineOne) { lineOne = false; continue; }
+                if (group) {
+                    if (groupObj == groupNum) { group = false; _windowObjects.push_back(readingGroup); readingGroup = nullptr; }
+                    groupNum++;
+                    if (row[0] == 0) {
+                    ECRectObject* rect = new ECRectObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],false);
+                    readingGroup->_collectionObjects.push_back(rect);
+                    } else if (row[0] == 1) {
+                    ECEllipseObject* rect = new ECEllipseObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],false);
+                    readingGroup->_collectionObjects.push_back(rect);
+                    } else if (row[0] == 2) {
+                    ECRectObject* rect = new ECRectObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],true);
+                    readingGroup->_collectionObjects.push_back(rect);
+                    } else if (row[0] == 3) {
+                    ECEllipseObject* rect = new ECEllipseObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],true);
+                    readingGroup->_collectionObjects.push_back(rect);
+                    }
+                }
+                if (!group) {
+                    if (row[0] == 0) {
+                        ECRectObject* rect = new ECRectObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],false);
+                        _windowObjects.push_back(rect);
+                    } else if (row[0] == 1) {
+                        ECEllipseObject* rect = new ECEllipseObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],false);
+                        _windowObjects.push_back(rect);
+                    } else if (row[0] == 2) {
+                        ECRectObject* rect = new ECRectObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],true);
+                        _windowObjects.push_back(rect);
+                    } else if (row[0] == 3) {
+                        ECEllipseObject* rect = new ECEllipseObject(row[1],row[2],row[3],row[4],1,(ECGVColorRef) row[5],true);
+                        _windowObjects.push_back(rect);
+                    } else if (row[0] == 4) {
+                        group = true;
+                        groupNum = row[1];
+                        readingGroup = new ECGroupObject();
+                    }
+                }
+            }
         }
 }
 

@@ -15,6 +15,7 @@
 #include <fstream>
 #include <time.h>
 #include <string>
+#include <sstream>
 
 #include "ECWindowObject.h"
 

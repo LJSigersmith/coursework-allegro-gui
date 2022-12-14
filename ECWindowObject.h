@@ -88,6 +88,7 @@ class ECRectObject : public ECWindowObject {
 public :
    
    // Rectangle Object
+    ECRectObject() {};
     ECRectObject(int x1, int y1, int x2, int y2, int thickness, ECGVColorRef color, bool filled) {
         _x1 = x1;
         _y1 = y1; 
@@ -234,9 +235,9 @@ class ECGroupObject : public ECWindowObject {
             for (auto obj : group->_collectionObjects) {
                 if (obj == without) { continue; }
                 ECRectObject* rect = dynamic_cast<ECRectObject*>(obj);
-                ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(ellipse);
-                ECGroupObject* group = dynamic_cast<ECGroupObject*>(group);
-                
+                ECEllipseObject* ellipse = dynamic_cast<ECEllipseObject*>(obj);
+                ECGroupObject* group = dynamic_cast<ECGroupObject*>(obj);
+
                 ECWindowObject* newObject;
                 if (rect) {
                     ECRectObject* newRect = new ECRectObject(rect);
@@ -251,7 +252,7 @@ class ECGroupObject : public ECWindowObject {
 
                 _collectionObjects.push_back(newObject);
             }
-            _objectsBeforeGroup = vector<ECWindowObject*>(group->_objectsBeforeGroup.begin(), group->_objectsBeforeGroup.end());
+            //_objectsBeforeGroup = vector<ECWindowObject*>(group->_objectsBeforeGroup.begin(), group->_objectsBeforeGroup.end());
         }
 
          ECGroupObject(std::vector<ECWindowObject*> objects) {
