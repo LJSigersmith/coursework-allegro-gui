@@ -18,6 +18,7 @@ enum ECGVColorRef
     ECGV_REF_NUM_COLORS
 };
 
+
 class ECWindowObject {
     public :
         virtual ~ECWindowObject() {};

@@ -25,7 +25,7 @@ void EscapeKeyUp::Update(ECGVEventTypeRef event) {
     _view->_singleSelectEnabled = true;
 
     for (auto obj : _view->_windowObjects) {
-        obj->_color = ECGV_REF_BLACK;
+        obj->setColor(ECGV_REF_BLACK);
     }
 
     _view->Clear(ECGV_REF_WHITE);
@@ -71,6 +71,13 @@ void ArrowKeyUp::Update(ECGVEventTypeRef event) {
         _view->_singleSelectEnabled = false;
 
         _view->_warning = "Key Editing ON";
+
+        for (auto selObj : selection->_objectsInSelection) {
+            auto i = _view->objectIndexInWindow(selObj);
+            if (i == _view->_windowObjects.end()) { throw runtime_error("object not found in window");}
+            _view->_windowObjects.erase(i);
+        }
+
         ECMultiSelectionObject* movedObject = dynamic_cast<ECMultiSelectionObject*>(getMovedObject(editingObject));
         for (auto obj : movedObject->_objectsInSelection) {
             _view->_windowObjects.push_back(obj);
@@ -106,7 +113,7 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         int x2 = _editingRect->_x2 + xMovement;
         int y2 = _editingRect->_y2 + yMovement;
 
-        ECRectObject* movedRect = new ECRectObject(x1, y1, x2, y2, 1, ECGV_REF_BLUE, false);
+        ECRectObject* movedRect = new ECRectObject(x1, y1, x2, y2, 1, ECGV_REF_BLUE, _editingRect->isFilled());
 
         _view->DrawRectangle(x1, y1, x2, y2, 1, ECGV_REF_BLUE, false);
         return movedRect;
@@ -117,7 +124,7 @@ ECWindowObject* ArrowKeyUp::getMovedObject(ECWindowObject* objToMove) {
         int xR = _editingEllipse->_xRadius;
         int yR = _editingEllipse->_yRadius;
 
-        ECEllipseObject* movedEllipse = new ECEllipseObject(xC,yC,xR,yR,1,ECGV_REF_BLUE,false);
+        ECEllipseObject* movedEllipse = new ECEllipseObject(xC,yC,xR,yR,1,ECGV_REF_BLUE,_editingEllipse->isFilled());
 
         _view->DrawEllipse(xC,yC,xR,yR,1,ECGV_REF_BLUE,false);
         return movedEllipse;
@@ -495,6 +502,10 @@ void YKeyUp::Update(ECGVEventTypeRef event) {
     _view->_undo.push_back(_savedWindow);
     _view->_redo.pop_back();
 
+    for (auto obj : _view->_windowObjects) {
+        obj->setColor(ECGV_REF_BLACK);
+    }
+
     _view->DrawAllObjects();
 
 }
@@ -527,6 +538,10 @@ void ZKeyUp::Update(ECGVEventTypeRef event) {
     _view->_windowObjects.clear();
 
     _view->_windowObjects = *_savedWindow;
+    
+    for (auto obj : _view->_windowObjects) {
+        obj->setColor(ECGV_REF_BLACK);
+    }
     
     cout << "Objects to Be Drawn: " << _view->_windowObjects.size() << endl;
     _view->DrawAllObjects();
@@ -606,6 +621,7 @@ void DKeyUp::Update(ECGVEventTypeRef event) {
 // and that there was a click
 void MouseDown::Update(ECGVEventTypeRef event) {
     if (event != ECGV_REF_EV_MOUSE_BUTTON_DOWN) { return; }
+    if (_view->_arrowMovementEnabled) { _view->_warning = "Press ESC to exit"; return; }
     _view->logFile << "Mouse Down" << endl;
     cout << "Mouse Down" << endl;
     _view->cursorxDown = _view->getCurrentCursorX();
@@ -1025,7 +1041,7 @@ void ECObserverSubject::DrawAllObjects() {
     FlipDisplay();
 
 }
-// Draw a Rectangle
+
 void ECObserverSubject::DrawRectangle(float x1, float y1, float x2, float y2, int thickness, ECGVColorRef color, bool filled) {
     if (filled) {
         _view->DrawFilledRectangle(x1, y1, x2, y2, (ECGVColor) color);
@@ -1041,7 +1057,7 @@ void ECObserverSubject::DrawRectangle(ECRectObject* rect) {
          _view->DrawRectangle(rect->_x1, rect->_y1, rect->_x2, rect->_y2, rect->_thickness, (ECGVColor) rect->_color);
     }
 }
-// Draw an Ellipse
+
 void ECObserverSubject::DrawEllipse(int xC, int yC, int xR, int yR, int thickness, ECGVColorRef color, bool filled) {
     if (filled) {
         _view->DrawFilledEllipse(xC, yC, xR, yR, (ECGVColor) color);
@@ -1100,7 +1116,7 @@ void ECObserverSubject::DrawObject(ECWindowObject* obj) {
         DrawSelection(selection);
     }
 }
-// Draw the Shape Label
+// Draw Labels
 void ECObserverSubject::DrawShapeLabel() {
     _view->DrawText(_view->GetWidth()-28, 5, 20, arrayAllegroColors[ECGV_BLACK], ALLEGRO_ALIGN_REF_RIGHT, _shapeStr);
 }
@@ -1127,7 +1143,7 @@ int ECObserverSubject::getCurrentCursorY() {
     return y;
 }
 
-// ============= Multi Drag ==============
+// ============= Moving Objects ==============
 ECWindowObject* ECObserverSubject::getNewMovingObject(ECWindowObject* originalObj, int cursorX, int cursorY) {
     
     ECRectObject* originalRect = dynamic_cast<ECRectObject*>(originalObj);
@@ -1397,18 +1413,18 @@ void ECObserverSubject::attachObservers() {
 }
 
 void ECObserverSubject::LoadSaveFile(char* filename) {
-        //ifstream f(filename);
-        //cout << "Loading Save File" << endl;
-        //if (!f.good()) { saveFile = ofstream(filename); }
-        //else {
-        //    cout << "File exists" << endl;
-        //    std::string line;
-        //    // Load objects from file and draw
-        //    while (std::getline(f, line)) {
-        //        //std::istringstream is(line);
+        ifstream f(filename);
+        cout << "Loading Save File" << endl;
+        if (!f.good()) { saveFile = ofstream(filename); }
+        else {
+           cout << "File exists" << endl;
+           std::string line;
+           // Load objects from file and draw
+           //while (std::getline(f, line)) {
+               //std::istringstream is(line);
 
-        //    }
-    //}
+           //}
+        }
 }
 
 void ECObserverSubject::WriteToSaveFile() {
